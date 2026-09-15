@@ -58,6 +58,8 @@ MAX_INTENTOS_LOGIN_POR_CORREO = 5
 MAX_INTENTOS_LOGIN_POR_IP = 20
 MAX_SOLICITUDES_RESTABLECIMIENTO_POR_CORREO = 3
 MAX_SOLICITUDES_RESTABLECIMIENTO_POR_IP = 10
+MAX_REENVIOS_VERIFICACION_POR_CORREO = 3
+MAX_REENVIOS_VERIFICACION_POR_IP = 10
 VENTANA_BLOQUEO_MINUTOS = 15
 
 
@@ -133,6 +135,32 @@ def verificar_email(token: str) -> Ciudadano:
         ciudadano.save(update_fields=["email_verificado", "actualizado_en"])
 
     return ciudadano
+
+
+def puede_solicitar_reenvio_verificacion(email: str, ip: str | None = None) -> bool:
+    """Mismo motivo que puede_solicitar_restablecimiento: el límite se
+    aplica igual exista o no la cuenta, y esté o no ya verificada — así
+    el límite mismo nunca delata nada."""
+    email_normalizado = Ciudadano.objects.normalize_email(email)
+    return not _demasiados_intentos(
+        IntentoAcceso.Accion.REENVIO_VERIFICACION,
+        email_normalizado,
+        ip,
+        max_por_correo=MAX_REENVIOS_VERIFICACION_POR_CORREO,
+        max_por_ip=MAX_REENVIOS_VERIFICACION_POR_IP,
+        solo_fallidos=False,
+    )
+
+
+def registrar_solicitud_reenvio_verificacion(email: str, ip: str | None = None) -> None:
+    email_normalizado = Ciudadano.objects.normalize_email(email)
+    _registrar_intento(IntentoAcceso.Accion.REENVIO_VERIFICACION, email_normalizado, ip, exitoso=True)
+
+
+def buscar_ciudadano_sin_verificar(email: str) -> Ciudadano | None:
+    return Ciudadano.objects.filter(
+        email=Ciudadano.objects.normalize_email(email), email_verificado=False
+    ).first()
 
 
 def autenticar(*, email: str, password: str, ip: str | None = None) -> Ciudadano:

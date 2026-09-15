@@ -77,6 +77,7 @@ class IntentoAcceso(models.Model):
     class Accion(models.TextChoices):
         LOGIN = "login", "Inicio de sesión"
         RESTABLECIMIENTO = "restablecimiento", "Solicitud de restablecimiento"
+        REENVIO_VERIFICACION = "reenvio_verificacion", "Reenvío de verificación de correo"
 
     accion = models.CharField(max_length=20, choices=Accion.choices)
     email = models.EmailField()

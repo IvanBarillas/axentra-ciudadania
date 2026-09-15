@@ -1,0 +1,6 @@
+<h1>Reenviar verificación de correo</h1>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Reenviar</button>
+</form>

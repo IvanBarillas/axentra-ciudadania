@@ -32,6 +32,29 @@ class RegistroYVerificacionTests(TestCase):
             services.verificar_email(token)
 
 
+class ReenvioDeVerificacionTests(TestCase):
+    def test_encuentra_al_ciudadano_sin_verificar(self):
+        ciudadano = services.registrar_ciudadano(email="a@example.mx", password="x")
+
+        self.assertEqual(services.buscar_ciudadano_sin_verificar("a@example.mx").id, ciudadano.id)
+
+    def test_no_devuelve_a_alguien_ya_verificado(self):
+        ciudadano = services.registrar_ciudadano(email="a@example.mx", password="x")
+        services.verificar_email(services.generar_token_verificacion(ciudadano))
+
+        self.assertIsNone(services.buscar_ciudadano_sin_verificar("a@example.mx"))
+
+    def test_correo_inexistente_no_revienta(self):
+        self.assertIsNone(services.buscar_ciudadano_sin_verificar("no-existe@example.mx"))
+
+    def test_se_bloquea_tras_varias_solicitudes_al_mismo_correo(self):
+        for _ in range(services.MAX_REENVIOS_VERIFICACION_POR_CORREO):
+            self.assertTrue(services.puede_solicitar_reenvio_verificacion("a@example.mx", "10.0.0.1"))
+            services.registrar_solicitud_reenvio_verificacion("a@example.mx", "10.0.0.1")
+
+        self.assertFalse(services.puede_solicitar_reenvio_verificacion("a@example.mx", "10.0.0.1"))
+
+
 class AutenticacionTests(TestCase):
     def setUp(self):
         self.ciudadano = services.registrar_ciudadano(

@@ -38,6 +38,10 @@ class SolicitarRestablecimientoForm(forms.Form):
     email = forms.EmailField(label="Correo")
 
 
+class SolicitarReenvioVerificacionForm(forms.Form):
+    email = forms.EmailField(label="Correo")
+
+
 class NuevaPasswordForm(ConfirmacionDePasswordMixin, forms.Form):
     password = forms.CharField(label="Nueva contraseña", widget=forms.PasswordInput, min_length=8)
     password_confirmacion = forms.CharField(label="Confirma tu nueva contraseña", widget=forms.PasswordInput)

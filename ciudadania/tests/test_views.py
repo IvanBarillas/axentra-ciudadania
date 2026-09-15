@@ -222,3 +222,49 @@ class CuentaLogueadaTests(TestCase):
 
         self.assertContains(respuesta, "nuevo@example.mx")
         self.assertEqual(Ciudadano.objects.get(id=self.ciudadano.id).email, "nuevo@example.mx")
+
+
+class ReenvioDeVerificacionViewTests(TestCase):
+    def test_login_sin_verificar_ofrece_reenviar(self):
+        services.registrar_ciudadano(email="juan@g.com", password="clave-super-larga")
+
+        respuesta = self.client.post(
+            reverse("ciudadania:login"),
+            {"email": "juan@g.com", "password": "clave-super-larga"},
+        )
+
+        self.assertContains(respuesta, "Verifica tu correo")
+        self.assertContains(respuesta, reverse("ciudadania:reenviar_verificacion"))
+
+    def test_reenvio_completo_permite_verificar_e_iniciar_sesion(self):
+        services.registrar_ciudadano(email="juan@g.com", password="clave-super-larga")
+        mail.outbox.clear()  # se perdió/borró el correo original — este es el escenario real
+
+        respuesta = self.client.post(
+            reverse("ciudadania:reenviar_verificacion"), {"email": "juan@g.com"}
+        )
+        self.assertContains(respuesta, "Revisa tu correo")
+        self.assertEqual(len(mail.outbox), 1)
+
+        match = re.search(r"http\S+/ciudadano/verificar/\S+/", mail.outbox[0].body)
+        self.assertIsNotNone(match)
+        self.client.get(match.group(0))
+
+        respuesta = self.client.post(
+            reverse("ciudadania:login"),
+            {"email": "juan@g.com", "password": "clave-super-larga"},
+            follow=True,
+        )
+        self.assertContains(respuesta, "juan@g.com")
+
+    def test_no_reenvia_a_quien_ya_esta_verificado(self):
+        ciudadano = services.registrar_ciudadano(email="juan@g.com", password="x")
+        services.verificar_email(services.generar_token_verificacion(ciudadano))
+        mail.outbox.clear()
+
+        respuesta = self.client.post(
+            reverse("ciudadania:reenviar_verificacion"), {"email": "juan@g.com"}
+        )
+
+        self.assertContains(respuesta, "Revisa tu correo")  # misma respuesta, no delata nada
+        self.assertEqual(len(mail.outbox), 0)

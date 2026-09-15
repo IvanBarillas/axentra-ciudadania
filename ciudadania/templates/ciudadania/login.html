@@ -1,5 +1,10 @@
 <h1>Iniciar sesión</h1>
-{% if error %}<p>{{ error }}</p>{% endif %}
+{% if error %}
+  <p>{{ error }}</p>
+  {% if correo_no_verificado %}
+    <p><a href="{% url 'ciudadania:reenviar_verificacion' %}">Reenviar correo de verificación</a></p>
+  {% endif %}
+{% endif %}
 <form method="post">
   {% csrf_token %}
   {{ form.as_p }}

@@ -6,6 +6,10 @@ app_name = "ciudadania"
 
 urlpatterns = [
     path("registro/", views.registro_view, name="registro"),
+    # El path literal "reenviar/" va ANTES del <str:token>/ — si no, ese
+    # catch-all lo captura primero (hallazgo real: "reenviar" se colaba
+    # como si fuera un token, y tronaba con "token inválido").
+    path("verificar/reenviar/", views.reenviar_verificacion_view, name="reenviar_verificacion"),
     path("verificar/<str:token>/", views.verificar_email_view, name="verificar_email"),
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),

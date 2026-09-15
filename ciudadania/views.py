@@ -9,6 +9,7 @@ from .forms import (
     NuevaPasswordForm,
     RegistroForm,
     SolicitarCambioEmailForm,
+    SolicitarReenvioVerificacionForm,
     SolicitarRestablecimientoForm,
 )
 from .models import Ciudadano
@@ -44,8 +45,35 @@ def verificar_email_view(request, token):
     return render(request, "ciudadania/email_verificado.html", {"ciudadano": ciudadano})
 
 
+def reenviar_verificacion_view(request):
+    if request.method == "POST":
+        form = SolicitarReenvioVerificacionForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data["email"]
+            ip = request.META.get("REMOTE_ADDR")
+
+            # Misma respuesta exista, esté ya verificada o esté bloqueada
+            # — nada de esto debe distinguirse desde afuera.
+            if services.puede_solicitar_reenvio_verificacion(email, ip):
+                ciudadano = services.buscar_ciudadano_sin_verificar(email)
+                if ciudadano is not None:
+                    token = services.generar_token_verificacion(ciudadano)
+                    url_verificacion = request.build_absolute_uri(
+                        reverse("ciudadania:verificar_email", args=[token])
+                    )
+                    services.enviar_correo_verificacion(ciudadano, url_verificacion)
+
+            services.registrar_solicitud_reenvio_verificacion(email, ip)
+            return render(request, "ciudadania/reenvio_verificacion_solicitado.html")
+    else:
+        form = SolicitarReenvioVerificacionForm()
+
+    return render(request, "ciudadania/reenviar_verificacion.html", {"form": form})
+
+
 def login_view(request):
     error = None
+    correo_no_verificado = False
     if request.method == "POST":
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -59,6 +87,7 @@ def login_view(request):
                 error = "Demasiados intentos. Espera unos minutos antes de volver a intentar."
             except services.CorreoNoVerificado:
                 error = "Verifica tu correo antes de iniciar sesión."
+                correo_no_verificado = True
             except services.CredencialesInvalidas:
                 error = "Correo o contraseña incorrectos."
             else:
@@ -67,7 +96,11 @@ def login_view(request):
     else:
         form = LoginForm()
 
-    return render(request, "ciudadania/login.html", {"form": form, "error": error})
+    return render(
+        request,
+        "ciudadania/login.html",
+        {"form": form, "error": error, "correo_no_verificado": correo_no_verificado},
+    )
 
 
 def logout_view(request):
