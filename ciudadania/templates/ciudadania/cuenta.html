@@ -1,0 +1,6 @@
+<h1>Mi cuenta</h1>
+<p>{{ ciudadano.nombre_completo|default:ciudadano.email }}</p>
+<form method="post" action="{% url 'ciudadania:logout' %}">
+  {% csrf_token %}
+  <button type="submit">Cerrar sesión</button>
+</form>

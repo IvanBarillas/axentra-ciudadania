@@ -25,9 +25,18 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
 ]
 
 ROOT_URLCONF = "devproject.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "APP_DIRS": True,
+        "OPTIONS": {},
+    },
+]
 
 DATABASES = {
     "default": {
@@ -35,6 +44,11 @@ DATABASES = {
         "NAME": BASE_DIR / "db.sqlite3",
     }
 }
+
+# Consola en desarrollo — quien instale este paquete de verdad define su
+# propio EMAIL_BACKEND (ver nota en ciudadania/services.py).
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "no-reply@example.mx"
 
 # Mismo orden que el Core (Argon2 primero) — ver AGENTS.md de axentra-core-django.
 PASSWORD_HASHERS = [
