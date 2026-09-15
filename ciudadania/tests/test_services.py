@@ -60,6 +60,68 @@ class AutenticacionTests(TestCase):
             services.autenticar(email="no-existe@example.mx", password="lo-que-sea")
 
 
+class FuerzaBrutaEnLoginTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(
+            email="vecino@example.mx", password="clave-correcta"
+        )
+        services.verificar_email(services.generar_token_verificacion(self.ciudadano))
+
+    def test_se_bloquea_tras_varios_intentos_fallidos_con_el_mismo_correo(self):
+        for _ in range(services.MAX_INTENTOS_LOGIN_POR_CORREO):
+            with self.assertRaises(services.CredencialesInvalidas):
+                services.autenticar(email="vecino@example.mx", password="incorrecta", ip="10.0.0.1")
+
+        with self.assertRaises(services.DemasiadosIntentos):
+            services.autenticar(email="vecino@example.mx", password="clave-correcta", ip="10.0.0.1")
+
+    def test_intentos_fallidos_a_otro_correo_no_bloquean_este(self):
+        otro = services.registrar_ciudadano(email="otro@example.mx", password="x")
+        for _ in range(services.MAX_INTENTOS_LOGIN_POR_CORREO):
+            with self.assertRaises(services.CredencialesInvalidas):
+                services.autenticar(email="otro@example.mx", password="mal", ip="10.0.0.1")
+
+        # vecino@example.mx sigue pudiendo entrar normal.
+        ciudadano = services.autenticar(
+            email="vecino@example.mx", password="clave-correcta", ip="10.0.0.1"
+        )
+        self.assertEqual(ciudadano.id, self.ciudadano.id)
+
+    def test_se_bloquea_por_ip_aunque_pruebe_correos_distintos(self):
+        for i in range(services.MAX_INTENTOS_LOGIN_POR_IP):
+            with self.assertRaises(services.CredencialesInvalidas):
+                services.autenticar(email=f"inventado{i}@example.mx", password="x", ip="10.0.0.9")
+
+        with self.assertRaises(services.DemasiadosIntentos):
+            services.autenticar(email="vecino@example.mx", password="clave-correcta", ip="10.0.0.9")
+
+    def test_un_login_exitoso_no_cuenta_como_fallido(self):
+        services.autenticar(email="vecino@example.mx", password="clave-correcta", ip="10.0.0.1")
+        services.autenticar(email="vecino@example.mx", password="clave-correcta", ip="10.0.0.1")
+
+        # Sigue funcionando — los éxitos no acercan al límite de fallidos.
+        ciudadano = services.autenticar(
+            email="vecino@example.mx", password="clave-correcta", ip="10.0.0.1"
+        )
+        self.assertEqual(ciudadano.id, self.ciudadano.id)
+
+
+class LimiteDeSolicitudesDeRestablecimientoTests(TestCase):
+    def test_se_bloquea_tras_varias_solicitudes_al_mismo_correo(self):
+        for _ in range(services.MAX_SOLICITUDES_RESTABLECIMIENTO_POR_CORREO):
+            self.assertTrue(services.puede_solicitar_restablecimiento("vecino@example.mx", "10.0.0.1"))
+            services.registrar_solicitud_restablecimiento("vecino@example.mx", "10.0.0.1")
+
+        self.assertFalse(services.puede_solicitar_restablecimiento("vecino@example.mx", "10.0.0.1"))
+
+    def test_el_limite_aplica_igual_si_la_cuenta_no_existe(self):
+        # A propósito: así el límite mismo no delata si una cuenta es real.
+        for _ in range(services.MAX_SOLICITUDES_RESTABLECIMIENTO_POR_CORREO):
+            services.registrar_solicitud_restablecimiento("no-existe@example.mx", "10.0.0.1")
+
+        self.assertFalse(services.puede_solicitar_restablecimiento("no-existe@example.mx", "10.0.0.1"))
+
+
 class RestablecimientoDeContrasenaTests(TestCase):
     def setUp(self):
         self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="clave-vieja")
@@ -139,3 +201,100 @@ class DatosPublicosTests(TestCase):
 
     def test_id_inexistente_devuelve_none(self):
         self.assertIsNone(services.obtener_datos_publicos("00000000-0000-0000-0000-000000000000"))
+
+
+class CambiarPasswordTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(email="a@example.mx", password="clave-vieja-larga")
+
+    def test_cambia_con_la_contrasena_actual_correcta(self):
+        services.cambiar_password(
+            self.ciudadano, password_actual="clave-vieja-larga", password_nueva="clave-nueva-larga"
+        )
+
+        actualizado = Ciudadano.objects.get(id=self.ciudadano.id)
+        self.assertTrue(actualizado.check_password("clave-nueva-larga"))
+
+    def test_rechaza_si_la_contrasena_actual_es_incorrecta(self):
+        with self.assertRaises(services.CredencialesInvalidas):
+            services.cambiar_password(
+                self.ciudadano, password_actual="esta-mal", password_nueva="clave-nueva-larga"
+            )
+
+        # No se tocó nada.
+        actualizado = Ciudadano.objects.get(id=self.ciudadano.id)
+        self.assertTrue(actualizado.check_password("clave-vieja-larga"))
+
+
+class CambiarEmailTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(email="viejo@example.mx", password="clave-larga")
+
+    def test_el_correo_no_cambia_hasta_confirmar(self):
+        token = services.solicitar_cambio_de_email(
+            self.ciudadano, password_actual="clave-larga", nuevo_email="nuevo@example.mx"
+        )
+
+        self.assertEqual(Ciudadano.objects.get(id=self.ciudadano.id).email, "viejo@example.mx")
+
+        services.confirmar_cambio_de_email(token)
+
+        actualizado = Ciudadano.objects.get(id=self.ciudadano.id)
+        self.assertEqual(actualizado.email, "nuevo@example.mx")
+        self.assertTrue(actualizado.email_verificado)
+
+    def test_rechaza_si_la_contrasena_actual_es_incorrecta(self):
+        with self.assertRaises(services.CredencialesInvalidas):
+            services.solicitar_cambio_de_email(
+                self.ciudadano, password_actual="mal", nuevo_email="nuevo@example.mx"
+            )
+
+    def test_rechaza_si_el_correo_nuevo_ya_lo_tiene_otra_cuenta(self):
+        services.registrar_ciudadano(email="nuevo@example.mx", password="x")
+
+        with self.assertRaises(services.CorreoYaRegistrado):
+            services.solicitar_cambio_de_email(
+                self.ciudadano, password_actual="clave-larga", nuevo_email="nuevo@example.mx"
+            )
+
+    def test_token_se_invalida_si_el_correo_ya_cambio_por_otro_camino(self):
+        token = services.solicitar_cambio_de_email(
+            self.ciudadano, password_actual="clave-larga", nuevo_email="nuevo@example.mx"
+        )
+        # El correo cambia por otra vía mientras el token seguía pendiente.
+        self.ciudadano.email = "otro-camino@example.mx"
+        self.ciudadano.save()
+
+        with self.assertRaises(services.TokenInvalido):
+            services.confirmar_cambio_de_email(token)
+
+    def test_cambiar_password_no_invalida_un_cambio_de_correo_pendiente(self):
+        # A diferencia del token de restablecimiento, este no depende de
+        # la contraseña — cambiarla no debe tumbar un cambio de correo ya
+        # en curso.
+        token = services.solicitar_cambio_de_email(
+            self.ciudadano, password_actual="clave-larga", nuevo_email="nuevo@example.mx"
+        )
+        services.cambiar_password(self.ciudadano, password_actual="clave-larga", password_nueva="otra-clave-larga")
+
+        confirmado = services.confirmar_cambio_de_email(token)
+
+        self.assertEqual(confirmado.email, "nuevo@example.mx")
+
+    def test_token_de_un_solo_uso(self):
+        token = services.solicitar_cambio_de_email(
+            self.ciudadano, password_actual="clave-larga", nuevo_email="nuevo@example.mx"
+        )
+        services.confirmar_cambio_de_email(token)
+
+        with self.assertRaises(services.TokenInvalido):
+            services.confirmar_cambio_de_email(token)
+
+    def test_alguien_mas_toma_el_correo_antes_de_que_se_confirme(self):
+        token = services.solicitar_cambio_de_email(
+            self.ciudadano, password_actual="clave-larga", nuevo_email="nuevo@example.mx"
+        )
+        services.registrar_ciudadano(email="nuevo@example.mx", password="x")
+
+        with self.assertRaises(services.CorreoYaRegistrado):
+            services.confirmar_cambio_de_email(token)

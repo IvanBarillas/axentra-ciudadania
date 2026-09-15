@@ -61,3 +61,33 @@ class Ciudadano(AbstractBaseUser):
 
     def __str__(self):
         return self.email
+
+
+class IntentoAcceso(models.Model):
+    """
+    Bitácora mínima para frenar fuerza bruta — el equivalente a lo que
+    `django-axes` hace para personal en el Core, pero `axes` está atado a
+    `django.contrib.auth` (señales de `authenticate()`/`AUTH_USER_MODEL`)
+    y `ciudadania` nunca pasa por ahí (ver README). Se implementa a mano
+    y en BD (no en caché): así funciona igual con varios workers/procesos
+    y sobrevive un reinicio, sin exigir que quien instale este paquete
+    configure un backend de caché en particular.
+    """
+
+    class Accion(models.TextChoices):
+        LOGIN = "login", "Inicio de sesión"
+        RESTABLECIMIENTO = "restablecimiento", "Solicitud de restablecimiento"
+
+    accion = models.CharField(max_length=20, choices=Accion.choices)
+    email = models.EmailField()
+    # GenericIPAddressField porque REMOTE_ADDR puede no reflejar la IP real
+    # detrás de un proxy inverso — mismo punto pendiente que ya tiene el
+    # propio Core (ver docs/deployment/audit-continuity.md: "revisar
+    # confianza en cabeceras IP del proxy"). Quien despliegue detrás de un
+    # proxy debe configurar ProxyFix/similar para que esto sea confiable.
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    exitoso = models.BooleanField(default=False)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["accion", "email", "creado_en"])]

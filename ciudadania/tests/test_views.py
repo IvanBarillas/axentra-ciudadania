@@ -4,6 +4,7 @@ from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 
+from ciudadania import services
 from ciudadania.models import Ciudadano
 
 
@@ -132,3 +133,92 @@ class RestablecimientoDeContrasenaViewTests(TestCase):
         respuesta = self.client.get(url_restablecimiento)
 
         self.assertEqual(respuesta.status_code, 400)
+
+
+class FuerzaBrutaViewTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(
+            email="vecino@example.mx", password="clave-correcta"
+        )
+        services.verificar_email(services.generar_token_verificacion(self.ciudadano))
+
+    def test_login_se_bloquea_tras_varios_intentos_y_lo_dice(self):
+        for _ in range(services.MAX_INTENTOS_LOGIN_POR_CORREO):
+            self.client.post(
+                reverse("ciudadania:login"),
+                {"email": "vecino@example.mx", "password": "incorrecta"},
+            )
+
+        respuesta = self.client.post(
+            reverse("ciudadania:login"),
+            {"email": "vecino@example.mx", "password": "clave-correcta"},
+        )
+
+        self.assertContains(respuesta, "Demasiados intentos")
+
+    def test_restablecimiento_repetido_sigue_dando_la_misma_respuesta(self):
+        for _ in range(services.MAX_SOLICITUDES_RESTABLECIMIENTO_POR_CORREO + 2):
+            respuesta = self.client.post(
+                reverse("ciudadania:solicitar_restablecimiento"), {"email": "vecino@example.mx"}
+            )
+            self.assertContains(respuesta, "Revisa tu correo")
+
+        # Aun así, no se mandó un correo por cada solicitud una vez bloqueado.
+        self.assertLess(len(mail.outbox), services.MAX_SOLICITUDES_RESTABLECIMIENTO_POR_CORREO + 2)
+
+
+class CuentaLogueadaTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(
+            email="vecino@example.mx", password="clave-vieja-larga", nombre_completo="Vecino"
+        )
+        services.verificar_email(services.generar_token_verificacion(self.ciudadano))
+        self.client.post(
+            reverse("ciudadania:login"),
+            {"email": "vecino@example.mx", "password": "clave-vieja-larga"},
+        )
+
+    def test_cambiar_password_sin_sesion_redirige_a_login(self):
+        self.client.post(reverse("ciudadania:logout"))
+
+        respuesta = self.client.get(reverse("ciudadania:cambiar_password"))
+
+        self.assertRedirects(respuesta, reverse("ciudadania:login"))
+
+    def test_cambia_la_contrasena_y_sirve_para_el_siguiente_login(self):
+        respuesta = self.client.post(
+            reverse("ciudadania:cambiar_password"),
+            {
+                "password_actual": "clave-vieja-larga",
+                "password": "clave-nueva-larga",
+                "password_confirmacion": "clave-nueva-larga",
+            },
+        )
+        self.assertContains(respuesta, "Contraseña actualizada")
+
+        self.client.post(reverse("ciudadania:logout"))
+        respuesta = self.client.post(
+            reverse("ciudadania:login"),
+            {"email": "vecino@example.mx", "password": "clave-nueva-larga"},
+            follow=True,
+        )
+        self.assertContains(respuesta, "Vecino")
+
+    def test_cambio_de_email_de_principio_a_fin(self):
+        respuesta = self.client.post(
+            reverse("ciudadania:solicitar_cambio_email"),
+            {"password_actual": "clave-vieja-larga", "nuevo_email": "nuevo@example.mx"},
+        )
+        self.assertContains(respuesta, "Confirma tu nuevo correo")
+
+        # El correo viejo sigue siendo el vigente hasta confirmar.
+        self.assertEqual(
+            Ciudadano.objects.get(id=self.ciudadano.id).email, "vecino@example.mx"
+        )
+
+        match = re.search(r"http\S+/ciudadano/cuenta/email/confirmar/\S+/", mail.outbox[-1].body)
+        self.assertIsNotNone(match)
+        respuesta = self.client.get(match.group(0))
+
+        self.assertContains(respuesta, "nuevo@example.mx")
+        self.assertEqual(Ciudadano.objects.get(id=self.ciudadano.id).email, "nuevo@example.mx")

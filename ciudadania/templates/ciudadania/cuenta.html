@@ -1,5 +1,11 @@
 <h1>Mi cuenta</h1>
 <p>{{ ciudadano.nombre_completo|default:ciudadano.email }}</p>
+<p>{{ ciudadano.email }}</p>
+<p>
+  <a href="{% url 'ciudadania:cambiar_password' %}">Cambiar contraseña</a>
+  ·
+  <a href="{% url 'ciudadania:solicitar_cambio_email' %}">Cambiar correo</a>
+</p>
 <form method="post" action="{% url 'ciudadania:logout' %}">
   {% csrf_token %}
   <button type="submit">Cerrar sesión</button>
