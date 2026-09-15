@@ -1,0 +1,16 @@
+[project]
+name = "axentra-ciudadania"
+version = "0.1.0"
+description = "Identidad ciudadana — satélite instalable de Axentra OS, independiente del expediente laboral de personal (security.User)."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "argon2-cffi>=25.1.0",
+    "django>=6.0.6",
+    "python-decouple>=3.8",
+]
+
+[dependency-groups]
+dev = [
+    "dj-database-url>=3.1.2",
+]
