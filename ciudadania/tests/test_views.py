@@ -184,6 +184,27 @@ class CuentaLogueadaTests(TestCase):
         self.assertContains(respuesta, "Mis trámites")
         self.assertContains(respuesta, "Mis situaciones de vida")
 
+    def test_panel_pinta_eventos_de_la_linea_de_tiempo_en_su_seccion(self):
+        services.registrar_evento(
+            self.ciudadano.id,
+            satelite_origen="tramites",
+            tipo_evento="tramite_iniciado",
+            titulo="Iniciaste tu acta de nacimiento",
+        )
+        services.registrar_evento(
+            self.ciudadano.id,
+            satelite_origen="situaciones_de_vida",
+            tipo_evento="situacion_avanzada",
+            titulo="Avanzaste en Tuve un bebé",
+        )
+
+        respuesta = self.client.get(reverse("ciudadania:cuenta"))
+
+        self.assertContains(respuesta, "Iniciaste tu acta de nacimiento")
+        self.assertContains(respuesta, "Avanzaste en Tuve un bebé")
+        self.assertNotContains(respuesta, "Todavía no tienes trámites en curso.")
+        self.assertNotContains(respuesta, "Todavía no tienes situaciones de vida en seguimiento.")
+
     def test_cambiar_password_sin_sesion_redirige_a_login(self):
         self.client.post(reverse("ciudadania:logout"))
 

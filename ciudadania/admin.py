@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Ciudadano, IntentoAcceso
+from .models import Ciudadano, EventoExpediente, IntentoAcceso
 
 
 @admin.register(Ciudadano)
@@ -34,6 +34,29 @@ class IntentoAccesoAdmin(admin.ModelAdmin):
     list_display = ("accion", "email", "ip", "exitoso", "creado_en")
     list_filter = ("accion", "exitoso")
     search_fields = ("email", "ip")
+    ordering = ("-creado_en",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(EventoExpediente)
+class EventoExpedienteAdmin(admin.ModelAdmin):
+    """
+    Solo lectura, igual que IntentoAcceso: esto lo escriben los
+    satélites vía `registrar_evento()`, no una persona a mano desde
+    el Admin.
+    """
+
+    list_display = ("ciudadano", "satelite_origen", "tipo_evento", "titulo", "creado_en")
+    list_filter = ("satelite_origen", "tipo_evento")
+    search_fields = ("titulo", "descripcion", "ciudadano__email")
     ordering = ("-creado_en",)
 
     def has_add_permission(self, request):

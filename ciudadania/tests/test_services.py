@@ -227,6 +227,59 @@ class DatosPublicosTests(TestCase):
         self.assertIsNone(services.obtener_datos_publicos("00000000-0000-0000-0000-000000000000"))
 
 
+class EventoExpedienteTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="x")
+
+    def test_registrar_evento_lo_deja_disponible_en_la_linea_de_tiempo(self):
+        evento = services.registrar_evento(
+            self.ciudadano.id,
+            satelite_origen="tramites",
+            tipo_evento="tramite_iniciado",
+            titulo="Iniciaste tu acta de nacimiento",
+            referencia="tramite-123",
+            descripcion="Falta subir un documento.",
+        )
+
+        self.assertEqual(evento.titulo, "Iniciaste tu acta de nacimiento")
+
+        linea_de_tiempo = services.obtener_linea_de_tiempo(self.ciudadano.id)
+        self.assertEqual(len(linea_de_tiempo), 1)
+        self.assertEqual(linea_de_tiempo[0].referencia, "tramite-123")
+
+    def test_registrar_evento_con_ciudadano_inexistente_no_hace_nada(self):
+        resultado = services.registrar_evento(
+            "00000000-0000-0000-0000-000000000000",
+            satelite_origen="tramites",
+            tipo_evento="x",
+            titulo="x",
+        )
+
+        self.assertIsNone(resultado)
+
+    def test_obtener_linea_de_tiempo_filtra_por_satelite_de_origen(self):
+        services.registrar_evento(
+            self.ciudadano.id, satelite_origen="tramites", tipo_evento="x", titulo="De trámites"
+        )
+        services.registrar_evento(
+            self.ciudadano.id,
+            satelite_origen="situaciones_de_vida",
+            tipo_evento="x",
+            titulo="De situaciones",
+        )
+
+        eventos_tramites = services.obtener_linea_de_tiempo(self.ciudadano.id, satelite_origen="tramites")
+
+        self.assertEqual(len(eventos_tramites), 1)
+        self.assertEqual(eventos_tramites[0].titulo, "De trámites")
+
+    def test_obtener_linea_de_tiempo_no_devuelve_eventos_de_otro_ciudadano(self):
+        otro = services.registrar_ciudadano(email="otro@example.mx", password="x")
+        services.registrar_evento(otro.id, satelite_origen="tramites", tipo_evento="x", titulo="Ajeno")
+
+        self.assertEqual(services.obtener_linea_de_tiempo(self.ciudadano.id), [])
+
+
 class CambiarPasswordTests(TestCase):
     def setUp(self):
         self.ciudadano = services.registrar_ciudadano(email="a@example.mx", password="clave-vieja-larga")

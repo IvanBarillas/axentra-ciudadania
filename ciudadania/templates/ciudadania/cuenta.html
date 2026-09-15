@@ -13,12 +13,34 @@
 
 <section>
   <h2>Mis trámites</h2>
-  <p>Todavía no tienes trámites en curso.</p>
+  {% if eventos_tramites %}
+    <ul>
+      {% for evento in eventos_tramites %}
+        <li>
+          {{ evento.creado_en|date:"d/m/Y" }} — {{ evento.titulo }}
+          {% if evento.descripcion %}: {{ evento.descripcion }}{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>Todavía no tienes trámites en curso.</p>
+  {% endif %}
 </section>
 
 <section>
   <h2>Mis situaciones de vida</h2>
-  <p>Todavía no tienes situaciones de vida en seguimiento.</p>
+  {% if eventos_situaciones %}
+    <ul>
+      {% for evento in eventos_situaciones %}
+        <li>
+          {{ evento.creado_en|date:"d/m/Y" }} — {{ evento.titulo }}
+          {% if evento.descripcion %}: {{ evento.descripcion }}{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>Todavía no tienes situaciones de vida en seguimiento.</p>
+  {% endif %}
 </section>
 
 <form method="post" action="{% url 'ciudadania:logout' %}">

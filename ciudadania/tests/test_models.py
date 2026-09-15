@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from ciudadania.models import Ciudadano
+from ciudadania.models import Ciudadano, EventoExpediente
 
 
 class CiudadanoModelTests(TestCase):
@@ -35,3 +35,26 @@ class CiudadanoModelTests(TestCase):
 
         self.assertIsNotNone(ciudadano.id)
         self.assertEqual(len(str(ciudadano.id)), 36)  # forma de un UUID
+
+
+class EventoExpedienteModelTests(TestCase):
+    def test_se_ordena_del_mas_reciente_al_mas_antiguo_por_defecto(self):
+        ciudadano = Ciudadano.objects.create_ciudadano(email="vecino@example.mx", password="x")
+        primero = EventoExpediente.objects.create(
+            ciudadano=ciudadano, satelite_origen="tramites", tipo_evento="x", titulo="Primero"
+        )
+        segundo = EventoExpediente.objects.create(
+            ciudadano=ciudadano, satelite_origen="tramites", tipo_evento="x", titulo="Segundo"
+        )
+
+        self.assertEqual(list(EventoExpediente.objects.all()), [segundo, primero])
+
+    def test_se_borra_en_cascada_con_el_ciudadano(self):
+        ciudadano = Ciudadano.objects.create_ciudadano(email="vecino@example.mx", password="x")
+        EventoExpediente.objects.create(
+            ciudadano=ciudadano, satelite_origen="tramites", tipo_evento="x", titulo="Evento"
+        )
+
+        ciudadano.delete()
+
+        self.assertFalse(EventoExpediente.objects.exists())

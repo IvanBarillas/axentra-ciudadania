@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 import email.policy
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core import signing
@@ -16,7 +16,7 @@ from django.core.mail import EmailMessage
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import Ciudadano, IntentoAcceso
+from .models import Ciudadano, EventoExpediente, IntentoAcceso
 
 # Hallazgo real (reportado por el usuario, probando contra el backend de
 # consola): la política de correo moderna de Python pliega cualquier línea
@@ -446,3 +446,71 @@ def obtener_datos_publicos(ciudadano_id) -> CiudadanoPublico | None:
         email=ciudadano.email,
         email_verificado=ciudadano.email_verificado,
     )
+
+
+@dataclasses.dataclass(frozen=True)
+class EventoPublico:
+    """Snapshot de solo lectura de un EventoExpediente — mismo espíritu
+    que CiudadanoPublico: para que el panel (u otro satélite) lo pinte
+    sin acoplarse al modelo de Django."""
+
+    id: str
+    satelite_origen: str
+    tipo_evento: str
+    referencia: str
+    titulo: str
+    descripcion: str
+    creado_en: datetime
+
+
+def _a_evento_publico(evento: EventoExpediente) -> EventoPublico:
+    return EventoPublico(
+        id=str(evento.id),
+        satelite_origen=evento.satelite_origen,
+        tipo_evento=evento.tipo_evento,
+        referencia=evento.referencia,
+        titulo=evento.titulo,
+        descripcion=evento.descripcion,
+        creado_en=evento.creado_en,
+    )
+
+
+def registrar_evento(
+    ciudadano_id,
+    *,
+    satelite_origen: str,
+    tipo_evento: str,
+    titulo: str,
+    referencia: str = "",
+    descripcion: str = "",
+) -> EventoPublico | None:
+    """
+    Para que otros satélites (trámites, situaciones de vida) dejen
+    constancia de algo relevante para un ciudadano. Silenciosamente no
+    hace nada si el ciudadano no existe (baja lógica incluida, vía el
+    manager) — un satélite no debería tronar por esto, mismo criterio de
+    apagado elegante que el resto de este paquete.
+    """
+    if not Ciudadano.objects.filter(id=ciudadano_id).exists():
+        return None
+
+    evento = EventoExpediente.objects.create(
+        ciudadano_id=ciudadano_id,
+        satelite_origen=satelite_origen,
+        tipo_evento=tipo_evento,
+        titulo=titulo,
+        referencia=referencia,
+        descripcion=descripcion,
+    )
+    return _a_evento_publico(evento)
+
+
+def obtener_linea_de_tiempo(ciudadano_id, *, satelite_origen: str | None = None) -> list[EventoPublico]:
+    """Para que el panel del ciudadano (u otro satélite) pinte la
+    línea de tiempo, opcionalmente filtrada a un solo satélite de
+    origen (ej. solo los eventos de "tramites")."""
+    eventos = EventoExpediente.objects.filter(ciudadano_id=ciudadano_id)
+    if satelite_origen:
+        eventos = eventos.filter(satelite_origen=satelite_origen)
+
+    return [_a_evento_publico(evento) for evento in eventos]

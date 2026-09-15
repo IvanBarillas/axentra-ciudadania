@@ -185,7 +185,19 @@ def cuenta_view(request):
     if ciudadano is None:
         return HttpResponseRedirect(reverse("ciudadania:login"))
 
-    return render(request, "ciudadania/cuenta.html", {"ciudadano": ciudadano})
+    return render(
+        request,
+        "ciudadania/cuenta.html",
+        {
+            "ciudadano": ciudadano,
+            "eventos_tramites": services.obtener_linea_de_tiempo(
+                ciudadano.id, satelite_origen="tramites"
+            ),
+            "eventos_situaciones": services.obtener_linea_de_tiempo(
+                ciudadano.id, satelite_origen="situaciones_de_vida"
+            ),
+        },
+    )
 
 
 @requiere_ciudadania_habilitada

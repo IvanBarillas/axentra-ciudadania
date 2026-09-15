@@ -63,6 +63,41 @@ class Ciudadano(AbstractBaseUser):
         return self.email
 
 
+class EventoExpediente(models.Model):
+    """
+    Evento genérico de la línea de tiempo del ciudadano — ver
+    docs/apps/panel-ciudadano-y-flujo-de-solicitudes.md, punto 2.
+    `ciudadania` es dueño de este modelo porque ya es dueño de la
+    identidad; otros satélites (trámites, situaciones de vida) escriben
+    aquí vía `registrar_evento()` en vez de llevar su propio historial
+    por separado, para no repetir la fragmentación ya documentada en
+    axentra-core-django/docs/apps/public-municipal-portal.md.
+
+    `satelite_origen` y `tipo_evento` son texto libre a propósito: este
+    paquete no debe conocer qué satélites existen ni sus tipos de evento
+    (mismo desacoplo que ya tiene el resto de `ciudadania` respecto a
+    otros módulos), solo los guarda y los devuelve.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ciudadano = models.ForeignKey(
+        Ciudadano, on_delete=models.CASCADE, related_name="eventos_expediente"
+    )
+    satelite_origen = models.CharField(max_length=50)
+    tipo_evento = models.CharField(max_length=50)
+    referencia = models.CharField(max_length=255, blank=True)
+    titulo = models.CharField(max_length=255)
+    descripcion = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["ciudadano", "satelite_origen", "creado_en"])]
+        ordering = ["-creado_en"]
+
+    def __str__(self):
+        return f"{self.satelite_origen}: {self.titulo}"
+
+
 class IntentoAcceso(models.Model):
     """
     Bitácora mínima para frenar fuerza bruta — el equivalente a lo que
