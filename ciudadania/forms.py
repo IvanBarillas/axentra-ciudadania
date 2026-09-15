@@ -1,11 +1,32 @@
 from django import forms
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from .models import Ciudadano
 
 
 class ConfirmacionDePasswordMixin:
-    """Comparte la regla 'las dos contraseñas deben coincidir' entre
-    RegistroForm y NuevaPasswordForm."""
+    """
+    Comparte, entre RegistroForm/NuevaPasswordForm/CambiarPasswordForm
+    (todas declaran su campo nuevo como "password"):
+
+    - la fortaleza de la contraseña, vía los validadores estándar de
+      Django (AUTH_PASSWORD_VALIDATORS) — la política real (longitud,
+      contraseñas comunes, etc.) la define quien instala este paquete,
+      igual que ya hace Django para AUTH_USER_MODEL. Hallazgo real: como
+      `Ciudadano` no es AUTH_USER_MODEL, estos validadores nunca se
+      ejecutaban solos — hay que llamarlos a mano.
+    - la regla "las dos contraseñas deben coincidir".
+    """
+
+    def clean_password(self):
+        password = self.cleaned_data.get("password")
+        if password:
+            try:
+                validate_password(password)
+            except DjangoValidationError as exc:
+                raise forms.ValidationError(list(exc.messages))
+        return password
 
     def clean(self):
         cleaned = super().clean()

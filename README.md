@@ -28,6 +28,20 @@ Django (p. ej. `axentra-core-django`), agregando `"ciudadania"` a
 - [x] `obtener_datos_publicos(id)` — snapshot de solo lectura para que
       otros satélites (Trámites, Reportes) resuelvan un UUID sin importar
       el modelo `Ciudadano` (ver `services.py`).
+- [x] Recuperar contraseña, fuerza bruta propia (`IntentoAcceso`) y
+      cambiar contraseña/correo ya logueado.
+- [x] Interruptor real de encendido/apagado — `CIUDADANIA_HABILITADA`
+      (default `True`). Apagado, toda vista pública responde 404 (nunca
+      403 — no delata que la función existe pero está deshabilitada).
+      Ver `services.ciudadania_habilitada()` /
+      `views.requiere_ciudadania_habilitada`.
+- [x] Validación de fortaleza de contraseña — `AUTH_PASSWORD_VALIDATORS`
+      de Django, llamados a mano desde `ConfirmacionDePasswordMixin`
+      (nunca corrían solos: `Ciudadano` no es `AUTH_USER_MODEL`).
+- [x] `admin.py` — `Ciudadano` (sin alta desde Admin, solo soporte:
+      desactivar/dar de baja) e `IntentoAcceso` (bitácora de solo lectura).
+- [x] `manage.py limpiar_intentos_acceso [--dias N] [--dry-run]` — purga
+      la bitácora de fuerza bruta, que si no se agota crece para siempre.
 - [ ] `module_manifest.py` / `permissions.py` — **decidido que NO aplica**
       (ver más abajo): sin panel en el Hub para v1.
 

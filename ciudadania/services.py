@@ -424,6 +424,17 @@ class CiudadanoPublico:
     email_verificado: bool
 
 
+def ciudadania_habilitada() -> bool:
+    """
+    El interruptor real que motivó este paquete desde el inicio: quien
+    instale `ciudadania` puede apagar el registro/login/etc. sin tocar
+    código ni desinstalar el paquete — solo cambiando este setting. No
+    hay `module_manifest.py`/panel de Hub para esto a propósito (un
+    ciudadano nunca entra ahí), así que este es el único interruptor.
+    """
+    return getattr(settings, "CIUDADANIA_HABILITADA", True)
+
+
 def obtener_datos_publicos(ciudadano_id) -> CiudadanoPublico | None:
     ciudadano = Ciudadano.objects.filter(id=ciudadano_id).first()
     if ciudadano is None:

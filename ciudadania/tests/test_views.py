@@ -268,3 +268,60 @@ class ReenvioDeVerificacionViewTests(TestCase):
 
         self.assertContains(respuesta, "Revisa tu correo")  # misma respuesta, no delata nada
         self.assertEqual(len(mail.outbox), 0)
+
+
+class FortalezaDePasswordViewTests(TestCase):
+    """
+    Hallazgo real: Ciudadano no es AUTH_USER_MODEL, así que
+    AUTH_PASSWORD_VALIDATORS nunca corría solo — hay que probar que de
+    verdad se está llamando desde el formulario, no solo que la función
+    exista (ver ConfirmacionDePasswordMixin en forms.py).
+    """
+
+    def test_registro_rechaza_contrasena_toda_numerica(self):
+        respuesta = self.client.post(
+            reverse("ciudadania:registro"),
+            {
+                "email": "a@example.mx",
+                "password": "12345678",
+                "password_confirmacion": "12345678",
+            },
+        )
+
+        self.assertFalse(Ciudadano.objects.filter(email="a@example.mx").exists())
+        self.assertContains(respuesta, "totalmente numérica")
+
+    def test_registro_rechaza_contrasena_comun(self):
+        respuesta = self.client.post(
+            reverse("ciudadania:registro"),
+            {
+                "email": "a@example.mx",
+                "password": "password123",
+                "password_confirmacion": "password123",
+            },
+        )
+
+        self.assertFalse(Ciudadano.objects.filter(email="a@example.mx").exists())
+        self.assertContains(respuesta, "muy común")
+
+    def test_cambiar_password_tambien_valida_fortaleza(self):
+        ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="clave-vieja-larga")
+        services.verificar_email(services.generar_token_verificacion(ciudadano))
+        self.client.post(
+            reverse("ciudadania:login"),
+            {"email": "vecino@example.mx", "password": "clave-vieja-larga"},
+        )
+
+        respuesta = self.client.post(
+            reverse("ciudadania:cambiar_password"),
+            {
+                "password_actual": "clave-vieja-larga",
+                "password": "12345678",
+                "password_confirmacion": "12345678",
+            },
+        )
+
+        self.assertContains(respuesta, "totalmente numérica")
+        self.assertTrue(
+            Ciudadano.objects.get(id=ciudadano.id).check_password("clave-vieja-larga")
+        )

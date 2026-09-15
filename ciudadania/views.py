@@ -1,4 +1,6 @@
-from django.http import HttpResponseRedirect
+from functools import wraps
+
+from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 
@@ -15,6 +17,22 @@ from .forms import (
 from .models import Ciudadano
 
 
+def requiere_ciudadania_habilitada(view_func):
+    """
+    404, no 403: cuando está apagada, la ruta debe comportarse como si no
+    existiera — no revelar que la función está ahí pero deshabilitada.
+    """
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not services.ciudadania_habilitada():
+            raise Http404
+        return view_func(request, *args, **kwargs)
+
+    return wrapper
+
+
+@requiere_ciudadania_habilitada
 def registro_view(request):
     if request.method == "POST":
         form = RegistroForm(request.POST)
@@ -36,6 +54,7 @@ def registro_view(request):
     return render(request, "ciudadania/registro.html", {"form": form})
 
 
+@requiere_ciudadania_habilitada
 def verificar_email_view(request, token):
     try:
         ciudadano = services.verificar_email(token)
@@ -45,6 +64,7 @@ def verificar_email_view(request, token):
     return render(request, "ciudadania/email_verificado.html", {"ciudadano": ciudadano})
 
 
+@requiere_ciudadania_habilitada
 def reenviar_verificacion_view(request):
     if request.method == "POST":
         form = SolicitarReenvioVerificacionForm(request.POST)
@@ -71,6 +91,7 @@ def reenviar_verificacion_view(request):
     return render(request, "ciudadania/reenviar_verificacion.html", {"form": form})
 
 
+@requiere_ciudadania_habilitada
 def login_view(request):
     error = None
     correo_no_verificado = False
@@ -103,11 +124,13 @@ def login_view(request):
     )
 
 
+@requiere_ciudadania_habilitada
 def logout_view(request):
     services.cerrar_sesion(request)
     return HttpResponseRedirect(reverse("ciudadania:login"))
 
 
+@requiere_ciudadania_habilitada
 def solicitar_restablecimiento_view(request):
     if request.method == "POST":
         form = SolicitarRestablecimientoForm(request.POST)
@@ -138,6 +161,7 @@ def solicitar_restablecimiento_view(request):
     return render(request, "ciudadania/solicitar_restablecimiento.html", {"form": form})
 
 
+@requiere_ciudadania_habilitada
 def restablecer_contrasena_view(request, token):
     try:
         ciudadano = services.resolver_token_restablecimiento(token)
@@ -155,6 +179,7 @@ def restablecer_contrasena_view(request, token):
     return render(request, "ciudadania/restablecer_contrasena.html", {"form": form})
 
 
+@requiere_ciudadania_habilitada
 def cuenta_view(request):
     ciudadano = services.ciudadano_actual(request)
     if ciudadano is None:
@@ -163,6 +188,7 @@ def cuenta_view(request):
     return render(request, "ciudadania/cuenta.html", {"ciudadano": ciudadano})
 
 
+@requiere_ciudadania_habilitada
 def cambiar_password_view(request):
     ciudadano = services.ciudadano_actual(request)
     if ciudadano is None:
@@ -191,6 +217,7 @@ def cambiar_password_view(request):
     return render(request, "ciudadania/cambiar_password.html", {"form": form, "error": error})
 
 
+@requiere_ciudadania_habilitada
 def solicitar_cambio_email_view(request):
     ciudadano = services.ciudadano_actual(request)
     if ciudadano is None:
@@ -228,6 +255,7 @@ def solicitar_cambio_email_view(request):
     return render(request, "ciudadania/solicitar_cambio_email.html", {"form": form, "error": error})
 
 
+@requiere_ciudadania_habilitada
 def confirmar_cambio_email_view(request, token):
     try:
         ciudadano = services.confirmar_cambio_de_email(token)
