@@ -178,6 +178,12 @@ class CuentaLogueadaTests(TestCase):
             {"email": "vecino@example.mx", "password": "clave-vieja-larga"},
         )
 
+    def test_panel_muestra_secciones_reservadas_para_tramites_y_situaciones(self):
+        respuesta = self.client.get(reverse("ciudadania:cuenta"))
+
+        self.assertContains(respuesta, "Mis trámites")
+        self.assertContains(respuesta, "Mis situaciones de vida")
+
     def test_cambiar_password_sin_sesion_redirige_a_login(self):
         self.client.post(reverse("ciudadania:logout"))
 

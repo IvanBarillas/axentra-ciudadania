@@ -1,11 +1,26 @@
 <h1>Mi cuenta</h1>
-<p>{{ ciudadano.nombre_completo|default:ciudadano.email }}</p>
-<p>{{ ciudadano.email }}</p>
-<p>
-  <a href="{% url 'ciudadania:cambiar_password' %}">Cambiar contraseña</a>
-  ·
-  <a href="{% url 'ciudadania:solicitar_cambio_email' %}">Cambiar correo</a>
-</p>
+
+<section>
+  <h2>Mis datos</h2>
+  <p>{{ ciudadano.nombre_completo|default:ciudadano.email }}</p>
+  <p>{{ ciudadano.email }}</p>
+  <p>
+    <a href="{% url 'ciudadania:cambiar_password' %}">Cambiar contraseña</a>
+    ·
+    <a href="{% url 'ciudadania:solicitar_cambio_email' %}">Cambiar correo</a>
+  </p>
+</section>
+
+<section>
+  <h2>Mis trámites</h2>
+  <p>Todavía no tienes trámites en curso.</p>
+</section>
+
+<section>
+  <h2>Mis situaciones de vida</h2>
+  <p>Todavía no tienes situaciones de vida en seguimiento.</p>
+</section>
+
 <form method="post" action="{% url 'ciudadania:logout' %}">
   {% csrf_token %}
   <button type="submit">Cerrar sesión</button>
