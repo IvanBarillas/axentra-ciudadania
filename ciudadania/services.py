@@ -7,15 +7,42 @@ Services = mutaciones/reglas; Views = coordinación HTTP).
 from __future__ import annotations
 
 import dataclasses
+import email.policy
 from datetime import timedelta
 
 from django.conf import settings
 from django.core import signing
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.db.models import Q
 from django.utils import timezone
 
 from .models import Ciudadano, IntentoAcceso
+
+# Hallazgo real (reportado por el usuario, probando contra el backend de
+# consola): la política de correo moderna de Python pliega cualquier línea
+# de más de 78 caracteres, y para hacerlo cambia el Content-Transfer-Encoding
+# a quoted-printable — que inserta un salto "=\n" a la mitad de la línea.
+# Nuestros tokens firmados miden 100+ caracteres, así que la URL de
+# verificación/restablecimiento se cortaba a la mitad. En un cliente de
+# correo real esto se decodifica solo (nunca se nota), pero rompe copiar y
+# pegar la URL cruda — que es justo como se prueba a mano en desarrollo.
+# Se desactiva el plegado (max_line_length=None) solo para estos correos.
+_POLITICA_SIN_PLEGADO = email.policy.default.clone(max_line_length=None)
+
+
+class _CorreoSinPlegado(EmailMessage):
+    def message(self, *, policy=_POLITICA_SIN_PLEGADO):
+        return super().message(policy=policy)
+
+
+def _enviar_correo(*, subject: str, message: str, recipient: str) -> None:
+    _CorreoSinPlegado(
+        subject=subject,
+        body=message,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        to=[recipient],
+    ).send()
+
 
 TOKEN_SALT = "ciudadania.verificacion-email"
 TOKEN_MAX_AGE_SEGUNDOS = 60 * 60 * 24 * 2  # 2 días
@@ -101,12 +128,13 @@ def generar_token_verificacion(ciudadano: Ciudadano) -> str:
 
 
 def enviar_correo_verificacion(ciudadano: Ciudadano, url_verificacion: str) -> None:
-    # Django estándar (send_mail), no apps.shared.notifications.enqueue_email
-    # del Core — este paquete debe funcionar instalado en cualquier
-    # proyecto Django, no solo en axentra-core-django. Si quien lo instala
-    # quiere que el correo pase por su propia cola, lo resuelve con su
-    # propio EMAIL_BACKEND (un backend Django normal), sin tocar este código.
-    send_mail(
+    # Django estándar (send_mail/EmailMessage), no
+    # apps.shared.notifications.enqueue_email del Core — este paquete debe
+    # funcionar instalado en cualquier proyecto Django, no solo en
+    # axentra-core-django. Si quien lo instala quiere que el correo pase
+    # por su propia cola, lo resuelve con su propio EMAIL_BACKEND (un
+    # backend Django normal), sin tocar este código.
+    _enviar_correo(
         subject="Verifica tu correo",
         message=(
             f"Hola {ciudadano.nombre_completo or ciudadano.email}:\n\n"
@@ -114,8 +142,7 @@ def enviar_correo_verificacion(ciudadano: Ciudadano, url_verificacion: str) -> N
             f"{url_verificacion}\n\n"
             "Si tú no solicitaste esto, ignora este mensaje."
         ),
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-        recipient_list=[ciudadano.email],
+        recipient=ciudadano.email,
     )
 
 
@@ -228,7 +255,7 @@ def generar_token_restablecimiento(ciudadano: Ciudadano) -> str:
 
 
 def enviar_correo_restablecimiento(ciudadano: Ciudadano, url_restablecimiento: str) -> None:
-    send_mail(
+    _enviar_correo(
         subject="Restablece tu contraseña",
         message=(
             f"Hola {ciudadano.nombre_completo or ciudadano.email}:\n\n"
@@ -236,8 +263,7 @@ def enviar_correo_restablecimiento(ciudadano: Ciudadano, url_restablecimiento: s
             f"{url_restablecimiento}\n\n"
             "Si tú no solicitaste esto, ignora este mensaje — tu contraseña actual sigue funcionando."
         ),
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-        recipient_list=[ciudadano.email],
+        recipient=ciudadano.email,
     )
 
 
@@ -326,15 +352,14 @@ def solicitar_cambio_de_email(
 
 
 def enviar_correo_confirmacion_cambio_email(nuevo_email: str, url_confirmacion: str) -> None:
-    send_mail(
+    _enviar_correo(
         subject="Confirma tu nuevo correo",
         message=(
             "Confirma que este es tu nuevo correo para tu cuenta ciudadana:\n"
             f"{url_confirmacion}\n\n"
             "Si tú no solicitaste esto, ignora este mensaje — tu correo actual sigue siendo el mismo."
         ),
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-        recipient_list=[nuevo_email],
+        recipient=nuevo_email,
     )
 
 

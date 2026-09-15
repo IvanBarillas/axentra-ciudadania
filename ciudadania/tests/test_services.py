@@ -1,4 +1,5 @@
 from django.contrib.sessions.backends.db import SessionStore
+from django.core import mail
 from django.test import RequestFactory, TestCase
 
 from ciudadania import services
@@ -321,3 +322,25 @@ class CambiarEmailTests(TestCase):
 
         with self.assertRaises(services.CorreoYaRegistrado):
             services.confirmar_cambio_de_email(token)
+
+
+class CorreoNoSePliegaTests(TestCase):
+    """
+    Hallazgo real (reportado por el usuario, probando contra el backend de
+    consola): `mail.outbox[i].body` da el texto limpio, ANTES de
+    codificarse a MIME — así que estas pruebas nunca hubieran atrapado que
+    la URL de verificación llegaba cortada a la mitad. Aquí se revisan los
+    bytes reales tal como saldrían por el cable (lo que ve un backend de
+    consola/archivo), igual que se vería en la vida real.
+    """
+
+    def test_una_url_larga_no_se_corta_en_los_bytes_reales(self):
+        ciudadano = services.registrar_ciudadano(email="a@example.mx", password="x")
+        token = services.generar_token_verificacion(ciudadano)
+        url = f"http://ejemplo.mx/ciudadano/verificar/{token}/"
+
+        services.enviar_correo_verificacion(ciudadano, url)
+
+        crudo = mail.outbox[0].message().as_bytes().decode("utf-8")
+        self.assertNotIn("=\n", crudo)
+        self.assertIn(url, crudo)
