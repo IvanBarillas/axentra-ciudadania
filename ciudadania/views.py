@@ -3,7 +3,8 @@ from django.shortcuts import render
 from django.urls import reverse
 
 from . import services
-from .forms import LoginForm, RegistroForm
+from .forms import LoginForm, NuevaPasswordForm, RegistroForm, SolicitarRestablecimientoForm
+from .models import Ciudadano
 
 
 def registro_view(request):
@@ -62,6 +63,45 @@ def login_view(request):
 def logout_view(request):
     services.cerrar_sesion(request)
     return HttpResponseRedirect(reverse("ciudadania:login"))
+
+
+def solicitar_restablecimiento_view(request):
+    if request.method == "POST":
+        form = SolicitarRestablecimientoForm(request.POST)
+        if form.is_valid():
+            ciudadano = Ciudadano.objects.filter(
+                email=Ciudadano.objects.normalize_email(form.cleaned_data["email"])
+            ).first()
+            if ciudadano is not None:
+                token = services.generar_token_restablecimiento(ciudadano)
+                url_restablecimiento = request.build_absolute_uri(
+                    reverse("ciudadania:restablecer_contrasena", args=[token])
+                )
+                services.enviar_correo_restablecimiento(ciudadano, url_restablecimiento)
+            # Misma respuesta exista o no la cuenta — nunca se revela si
+            # un correo está registrado (evita enumeración de cuentas).
+            return render(request, "ciudadania/restablecimiento_solicitado.html")
+    else:
+        form = SolicitarRestablecimientoForm()
+
+    return render(request, "ciudadania/solicitar_restablecimiento.html", {"form": form})
+
+
+def restablecer_contrasena_view(request, token):
+    try:
+        ciudadano = services.resolver_token_restablecimiento(token)
+    except services.TokenInvalido:
+        return render(request, "ciudadania/token_invalido.html", status=400)
+
+    if request.method == "POST":
+        form = NuevaPasswordForm(request.POST)
+        if form.is_valid():
+            services.restablecer_contrasena(ciudadano, form.cleaned_data["password"])
+            return render(request, "ciudadania/contrasena_restablecida.html")
+    else:
+        form = NuevaPasswordForm()
+
+    return render(request, "ciudadania/restablecer_contrasena.html", {"form": form})
 
 
 def cuenta_view(request):

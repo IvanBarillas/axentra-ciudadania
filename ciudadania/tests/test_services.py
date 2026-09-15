@@ -60,6 +60,41 @@ class AutenticacionTests(TestCase):
             services.autenticar(email="no-existe@example.mx", password="lo-que-sea")
 
 
+class RestablecimientoDeContrasenaTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="clave-vieja")
+
+    def test_token_valido_permite_restablecer(self):
+        token = services.generar_token_restablecimiento(self.ciudadano)
+
+        resuelto = services.resolver_token_restablecimiento(token)
+        services.restablecer_contrasena(resuelto, "clave-nueva-segura")
+
+        actualizado = Ciudadano.objects.get(id=self.ciudadano.id)
+        self.assertTrue(actualizado.check_password("clave-nueva-segura"))
+        self.assertFalse(actualizado.check_password("clave-vieja"))
+
+    def test_token_es_de_un_solo_uso(self):
+        token = services.generar_token_restablecimiento(self.ciudadano)
+        ciudadano = services.resolver_token_restablecimiento(token)
+        services.restablecer_contrasena(ciudadano, "clave-nueva-segura")
+
+        with self.assertRaises(services.TokenInvalido):
+            services.resolver_token_restablecimiento(token)
+
+    def test_token_se_invalida_si_la_contrasena_ya_cambio_por_otro_medio(self):
+        token = services.generar_token_restablecimiento(self.ciudadano)
+        self.ciudadano.set_password("otra-clave-distinta")
+        self.ciudadano.save()
+
+        with self.assertRaises(services.TokenInvalido):
+            services.resolver_token_restablecimiento(token)
+
+    def test_token_basura_lanza_excepcion(self):
+        with self.assertRaises(services.TokenInvalido):
+            services.resolver_token_restablecimiento("esto-no-es-un-token-real")
+
+
 class SesionTests(TestCase):
     def _request_con_sesion(self):
         request = RequestFactory().get("/")

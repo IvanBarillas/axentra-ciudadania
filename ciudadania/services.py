@@ -17,6 +17,9 @@ from .models import Ciudadano
 TOKEN_SALT = "ciudadania.verificacion-email"
 TOKEN_MAX_AGE_SEGUNDOS = 60 * 60 * 24 * 2  # 2 días
 
+RESET_TOKEN_SALT = "ciudadania.restablecer-password"
+RESET_TOKEN_MAX_AGE_SEGUNDOS = 60 * 60  # 1 hora — más corto que el de verificación a propósito
+
 SESSION_KEY = "ciudadano_id"
 
 
@@ -95,6 +98,58 @@ def autenticar(*, email: str, password: str) -> Ciudadano:
         raise CorreoNoVerificado
 
     return ciudadano
+
+
+def generar_token_restablecimiento(ciudadano: Ciudadano) -> str:
+    # Se firma también un fragmento del hash actual de la contraseña —
+    # así el token se autoinvalida solo en cuanto se usa (o si la
+    # contraseña cambió por cualquier otro medio mientras tanto), sin
+    # necesitar una tabla aparte de "tokens ya usados".
+    return signing.dumps(
+        {"id": str(ciudadano.id), "firma_password": ciudadano.password[-12:]},
+        salt=RESET_TOKEN_SALT,
+    )
+
+
+def enviar_correo_restablecimiento(ciudadano: Ciudadano, url_restablecimiento: str) -> None:
+    send_mail(
+        subject="Restablece tu contraseña",
+        message=(
+            f"Hola {ciudadano.nombre_completo or ciudadano.email}:\n\n"
+            "Para elegir una nueva contraseña, entra aquí (el enlace vence en 1 hora):\n"
+            f"{url_restablecimiento}\n\n"
+            "Si tú no solicitaste esto, ignora este mensaje — tu contraseña actual sigue funcionando."
+        ),
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        recipient_list=[ciudadano.email],
+    )
+
+
+def resolver_token_restablecimiento(token: str) -> Ciudadano:
+    try:
+        datos = signing.loads(token, salt=RESET_TOKEN_SALT, max_age=RESET_TOKEN_MAX_AGE_SEGUNDOS)
+        ciudadano_id = datos["id"]
+        firma_password = datos["firma_password"]
+    except (signing.BadSignature, KeyError, TypeError) as exc:
+        raise TokenInvalido from exc
+
+    try:
+        ciudadano = Ciudadano.objects.get(id=ciudadano_id)
+    except (Ciudadano.DoesNotExist, ValueError) as exc:
+        raise TokenInvalido from exc
+
+    if ciudadano.password[-12:] != firma_password:
+        # La contraseña ya no es la misma que cuando se generó el enlace
+        # — ya se usó este token, o se cambió la contraseña por otro
+        # camino. En cualquier caso, este enlace ya no sirve.
+        raise TokenInvalido
+
+    return ciudadano
+
+
+def restablecer_contrasena(ciudadano: Ciudadano, nueva_password: str) -> None:
+    ciudadano.set_password(nueva_password)
+    ciudadano.save(update_fields=["password", "actualizado_en"])
 
 
 def iniciar_sesion(request, ciudadano: Ciudadano) -> None:
