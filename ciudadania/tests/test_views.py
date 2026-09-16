@@ -179,13 +179,18 @@ class CuentaLogueadaTests(TestCase):
             {"email": "vecino@example.mx", "password": "clave-vieja-larga"},
         )
 
-    def test_panel_muestra_secciones_reservadas_para_tramites_y_situaciones(self):
+    def test_panel_sin_actividad_muestra_mensaje_generico(self):
+        # Bug real corregido: las secciones por satélite ya no están
+        # reservadas a mano — sin eventos, no hay nada que agrupar, y el
+        # panel muestra un solo mensaje genérico en vez de dos secciones
+        # vacías con nombres de satélites hardcodeados.
         respuesta = self.client.get(reverse("ciudadania:cuenta"))
 
-        self.assertContains(respuesta, "Mis trámites")
-        self.assertContains(respuesta, "Mis situaciones de vida")
+        self.assertContains(respuesta, "Todavía no tienes actividad registrada.")
+        self.assertNotContains(respuesta, "Mis trámites")
+        self.assertNotContains(respuesta, "Mis situaciones de vida")
 
-    def test_panel_pinta_eventos_de_la_linea_de_tiempo_en_su_seccion(self):
+    def test_panel_agrupa_eventos_por_satelite_dinamicamente(self):
         services.registrar_evento(
             self.ciudadano.id,
             satelite_origen="tramites",
@@ -198,13 +203,24 @@ class CuentaLogueadaTests(TestCase):
             tipo_evento="situacion_avanzada",
             titulo="Avanzaste en Tuve un bebé",
         )
+        # Satélite que no existía cuando se escribió el panel — nunca
+        # declarado a mano, debe aparecer solo con un título por defecto.
+        services.registrar_evento(
+            self.ciudadano.id,
+            satelite_origen="pagos",
+            tipo_evento="pago_confirmado",
+            titulo="Pagaste tu predial",
+        )
 
         respuesta = self.client.get(reverse("ciudadania:cuenta"))
 
+        self.assertContains(respuesta, "Mis trámites")
         self.assertContains(respuesta, "Iniciaste tu acta de nacimiento")
+        self.assertContains(respuesta, "Mis situaciones de vida")
         self.assertContains(respuesta, "Avanzaste en Tuve un bebé")
-        self.assertNotContains(respuesta, "Todavía no tienes trámites en curso.")
-        self.assertNotContains(respuesta, "Todavía no tienes situaciones de vida en seguimiento.")
+        self.assertContains(respuesta, "Pagos")
+        self.assertContains(respuesta, "Pagaste tu predial")
+        self.assertNotContains(respuesta, "Todavía no tienes actividad registrada.")
 
     @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
     def test_mi_expediente_permite_subir_y_lista_el_documento(self):

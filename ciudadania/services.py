@@ -520,6 +520,45 @@ def obtener_linea_de_tiempo(ciudadano_id, *, satelite_origen: str | None = None)
     return [_a_evento_publico(evento) for evento in eventos]
 
 
+@dataclasses.dataclass(frozen=True)
+class GrupoLineaDeTiempo:
+    """Un satélite y sus eventos, para pintar una sección del panel."""
+
+    satelite_origen: str
+    eventos: list[EventoPublico]
+
+
+def obtener_linea_de_tiempo_agrupada(ciudadano_id) -> list[GrupoLineaDeTiempo]:
+    """Misma línea de tiempo que obtener_linea_de_tiempo(), agrupada por
+    satélite de origen — para que el panel del ciudadano muestre una
+    sección por cada satélite que de verdad tenga eventos, sin
+    declararlos a mano ni tocar código cuando aparezca uno nuevo.
+
+    Bug real señalado en vivo: cuenta_view/cuenta.html tenían "Mis
+    trámites" y "Mis situaciones de vida" como dos secciones
+    hardcodeadas (una llamada a obtener_linea_de_tiempo() por
+    satélite, una <section> por satélite en la plantilla) — con "mis
+    eventos", "mis pagos" y lo que siga agregándose, eso deja de ser
+    sostenible: cada satélite nuevo obligaría a tocar la vista Y la
+    plantilla. Esto solo agrupa lo que ya existe en EventoExpediente;
+    un satélite nuevo que empiece a llamar registrar_evento() aparece
+    solo, sin cambiar nada aquí.
+
+    Los grupos salen en el orden en que aparece su evento más
+    reciente (obtener_linea_de_tiempo ya viene ordenada de más nuevo a
+    más viejo) — el satélite con actividad más reciente queda primero,
+    sin necesidad de una lista de prioridad a mano.
+    """
+    grupos: dict[str, list[EventoPublico]] = {}
+    for evento in obtener_linea_de_tiempo(ciudadano_id):
+        grupos.setdefault(evento.satelite_origen, []).append(evento)
+
+    return [
+        GrupoLineaDeTiempo(satelite_origen=satelite, eventos=eventos)
+        for satelite, eventos in grupos.items()
+    ]
+
+
 # ======================================================================
 # Expediente del ciudadano (documentos) — ver
 # docs/apps/panel-ciudadano-y-flujo-de-solicitudes.md, punto 3.

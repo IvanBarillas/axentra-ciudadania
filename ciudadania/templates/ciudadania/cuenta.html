@@ -4,10 +4,17 @@ Diseño real reemplazando el placeholder sin estilo — mismo pedido y mismo
 patrón ya usado en axentra-mod-situaciones-de-vida para sus páginas
 públicas. Ancla real del panel del ciudadano (ver docs/apps/
 panel-ciudadano-y-flujo-de-solicitudes.md, punto 1): tarjeta de cuenta +
-dos líneas de tiempo (trámites, situaciones de vida) alimentadas por
-EventoExpediente — mismo tratamiento de tarjeta con icono que ya usa
-situaciones_de_vida/publico/detalle.html para sus pasos, aquí como punto
-de actividad en vez de paso numerado.
+línea de tiempo por satélite, alimentada por EventoExpediente — mismo
+tratamiento de tarjeta con icono que ya usa situaciones_de_vida/publico/
+detalle.html para sus pasos, aquí como punto de actividad en vez de
+paso numerado.
+
+Bug real señalado en vivo: esto tenía dos <section> hardcodeadas ("Mis
+trámites"/"Mis situaciones de vida"), una por satélite conocido hoy —
+con "mis eventos", "mis pagos" y lo que siga agregándose, eso deja de
+ser sostenible. Ahora es un solo bucle sobre grupos_eventos
+(views.cuenta_view + services.obtener_linea_de_tiempo_agrupada) — un
+satélite nuevo aparece solo, sin tocar esta plantilla.
 {% endcomment %}
 {% block title %}Mi cuenta{% endblock %}
 
@@ -49,55 +56,33 @@ de actividad en vez de paso numerado.
     </div>
 </section>
 
-<section class="mb-8">
-    <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 font-mono mb-3">Mis trámites</h2>
-    {% if eventos_tramites %}
-    <div class="space-y-3">
-        {% for evento in eventos_tramites %}
-        <div class="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex gap-3">
-            <div class="h-8 w-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
-                <i data-lucide="file-text" class="h-4 w-4"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-                <div class="flex items-center justify-between gap-2">
-                    <h3 class="text-sm font-black text-gray-950 truncate">{{ evento.titulo }}</h3>
-                    <span class="shrink-0 text-xs font-bold text-gray-400 font-mono">{{ evento.creado_en|date:"d/m/Y" }}</span>
+{% if grupos_eventos %}
+    {% for grupo in grupos_eventos %}
+    <section class="mb-8">
+        <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 font-mono mb-3">{{ grupo.titulo }}</h2>
+        <div class="space-y-3">
+            {% for evento in grupo.eventos %}
+            <div class="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex gap-3">
+                <div class="h-8 w-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
+                    <i data-lucide="{{ grupo.icono }}" class="h-4 w-4"></i>
                 </div>
-                {% if evento.descripcion %}<p class="mt-1 text-xs text-gray-500 font-medium leading-relaxed">{{ evento.descripcion }}</p>{% endif %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="bg-white p-6 rounded-2xl border border-dashed border-gray-200 text-center">
-        <p class="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">Todavía no tienes trámites en curso.</p>
-    </div>
-    {% endif %}
-</section>
-
-<section>
-    <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 font-mono mb-3">Mis situaciones de vida</h2>
-    {% if eventos_situaciones %}
-    <div class="space-y-3">
-        {% for evento in eventos_situaciones %}
-        <div class="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex gap-3">
-            <div class="h-8 w-8 rounded-full bg-brand-accent/10 text-brand-accent flex items-center justify-center shrink-0">
-                <i data-lucide="signpost" class="h-4 w-4"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-                <div class="flex items-center justify-between gap-2">
-                    <h3 class="text-sm font-black text-gray-950 truncate">{{ evento.titulo }}</h3>
-                    <span class="shrink-0 text-xs font-bold text-gray-400 font-mono">{{ evento.creado_en|date:"d/m/Y" }}</span>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-black text-gray-950 truncate">{{ evento.titulo }}</h3>
+                        <span class="shrink-0 text-xs font-bold text-gray-400 font-mono">{{ evento.creado_en|date:"d/m/Y" }}</span>
+                    </div>
+                    {% if evento.descripcion %}<p class="mt-1 text-xs text-gray-500 font-medium leading-relaxed">{{ evento.descripcion }}</p>{% endif %}
                 </div>
-                {% if evento.descripcion %}<p class="mt-1 text-xs text-gray-500 font-medium leading-relaxed">{{ evento.descripcion }}</p>{% endif %}
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="bg-white p-6 rounded-2xl border border-dashed border-gray-200 text-center">
-        <p class="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">Todavía no tienes situaciones de vida en seguimiento.</p>
-    </div>
-    {% endif %}
-</section>
+    </section>
+    {% endfor %}
+{% else %}
+    <section>
+        <div class="bg-white p-6 rounded-2xl border border-dashed border-gray-200 text-center">
+            <p class="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">Todavía no tienes actividad registrada.</p>
+        </div>
+    </section>
+{% endif %}
 {% endblock %}
