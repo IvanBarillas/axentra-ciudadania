@@ -208,14 +208,14 @@ class CuentaLogueadaTests(TestCase):
 
     @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
     def test_mi_expediente_permite_subir_y_lista_el_documento(self):
-        TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+        tipo = TipoDocumento.objects.get(clave="rfc")
 
         respuesta = self.client.get(reverse("ciudadania:mi_expediente"))
         self.assertContains(respuesta, "Mi expediente")
 
         archivo = SimpleUploadedFile("rfc.pdf", b"%PDF-1.4\nfake", content_type="application/pdf")
         respuesta = self.client.post(
-            reverse("ciudadania:mi_expediente"), {"tipo_documento": 1, "archivo": archivo}
+            reverse("ciudadania:mi_expediente"), {"tipo_documento": tipo.id, "archivo": archivo}
         )
 
         self.assertContains(respuesta, "RFC")
@@ -223,7 +223,7 @@ class CuentaLogueadaTests(TestCase):
 
     @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
     def test_mi_expediente_avisa_al_sobrescribir(self):
-        tipo = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+        tipo = TipoDocumento.objects.get(clave="rfc")
         services.subir_documento_a_expediente(
             self.ciudadano.id,
             tipo.clave,
