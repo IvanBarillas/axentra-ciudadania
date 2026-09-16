@@ -1,0 +1,33 @@
+{% extends "ciudadania/_base_publica.html" %}
+{% comment %}
+Layout real de dos columnas para las páginas DEL PANEL con sesión
+(cuenta/resumen, expediente, actividad por categoría) — nunca para
+login/registro/confirmaciones, que siguen extendiendo
+_base_publica.html directo con su columna angosta centrada.
+
+Bug real señalado en vivo: el panel apilaba cuenta + toda la actividad
+de cada satélite en una sola página larga — con 20 módulos que un
+ciudadano pueda usar, eso deja de ser navegable. Mismo espíritu que el
+sidebar contextual del Core (shell/workbench.html +
+_module_sidebar.html), pero propio de este panel — nunca vive en el
+Hub (decisión ya tomada, "sin panel en el Hub v1": esa es la consola
+de personal, este es un panel para el propio ciudadano, en su sesión
+pública).
+
+Sin HTMX a propósito: este paquete no lo usa en ningún otro lado
+todavía, y la navegación completa por página (sin swaps parciales) es
+más simple y no le agrega una dependencia nueva a un paquete que debe
+seguir siendo instalable en cualquier proyecto Django.
+{% endcomment %}
+{% block panel_max_width %}64rem{% endblock %}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row gap-6 items-start">
+    <aside class="w-full lg:w-64 shrink-0 lg:sticky lg:top-24">
+        {% include "ciudadania/_panel_sidebar.html" %}
+    </aside>
+    <div class="min-w-0 flex-1 w-full">
+        {% block panel_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}

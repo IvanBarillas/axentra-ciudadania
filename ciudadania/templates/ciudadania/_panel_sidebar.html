@@ -1,0 +1,17 @@
+{% comment %}
+Sidebar del panel del ciudadano — recibe `nav_items` ya armado por la
+vista (views._construir_items_sidebar): "Resumen", "Mi expediente", y
+un item por cada satélite con actividad real, nunca declarados a mano
+aquí. Mismo tratamiento visual que el sidebar contextual del Core
+(bg-brand-primary, borde izquierdo de acento en el activo), pero un
+componente propio de este paquete.
+{% endcomment %}
+<nav class="bg-brand-primary rounded-[24px] p-4 space-y-1" aria-label="Navegación de mi cuenta">
+    {% for item in nav_items %}
+    <a href="{{ item.url }}"
+       class="flex items-center gap-3 rounded-xl border-l-4 px-3 py-2.5 text-xs font-black uppercase tracking-wider transition-colors {% if item.activo %}border-brand-accent bg-white/15 text-white{% else %}border-transparent text-white/70 hover:bg-white/10 hover:text-white{% endif %}">
+        <i data-lucide="{{ item.icono }}" class="h-4 w-4 shrink-0 {% if item.activo %}text-white{% else %}text-white/50{% endif %}"></i>
+        <span class="truncate">{{ item.titulo }}</span>
+    </a>
+    {% endfor %}
+</nav>

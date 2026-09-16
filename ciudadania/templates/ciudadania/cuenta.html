@@ -1,25 +1,21 @@
-{% extends "ciudadania/_base_publica.html" %}
+{% extends "ciudadania/_panel_base.html" %}
 {% comment %}
 Diseño real reemplazando el placeholder sin estilo — mismo pedido y mismo
 patrón ya usado en axentra-mod-situaciones-de-vida para sus páginas
-públicas. Ancla real del panel del ciudadano (ver docs/apps/
-panel-ciudadano-y-flujo-de-solicitudes.md, punto 1): tarjeta de cuenta +
-línea de tiempo por satélite, alimentada por EventoExpediente — mismo
-tratamiento de tarjeta con icono que ya usa situaciones_de_vida/publico/
-detalle.html para sus pasos, aquí como punto de actividad en vez de
-paso numerado.
+públicas.
 
-Bug real señalado en vivo: esto tenía dos <section> hardcodeadas ("Mis
-trámites"/"Mis situaciones de vida"), una por satélite conocido hoy —
-con "mis eventos", "mis pagos" y lo que siga agregándose, eso deja de
-ser sostenible. Ahora es un solo bucle sobre grupos_eventos
-(views.cuenta_view + services.obtener_linea_de_tiempo_agrupada) — un
-satélite nuevo aparece solo, sin tocar esta plantilla.
+Bug real señalado en vivo (segunda vuelta): esto apilaba la tarjeta de
+cuenta + una sección por cada satélite con actividad, todo en una sola
+página larga — con 20 módulos que un ciudadano pueda usar, eso deja de
+ser navegable, aunque las secciones ya no estuvieran hardcodeadas
+(primera vuelta). Ahora "Resumen" es solo la tarjeta de cuenta; cada
+categoría de actividad vive en su propia página
+(actividad.html, ver _panel_base.html/_panel_sidebar.html).
 {% endcomment %}
 {% block title %}Mi cuenta{% endblock %}
 
-{% block content %}
-<section class="bg-white p-6 rounded-[24px] border border-gray-200/90 shadow-2xs mb-8 relative overflow-hidden">
+{% block panel_content %}
+<section class="bg-white p-6 rounded-[24px] border border-gray-200/90 shadow-2xs relative overflow-hidden">
     <div class="absolute top-0 right-0 w-24 h-24 bg-brand-primary/5 rounded-bl-full pointer-events-none"></div>
     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div class="flex items-center gap-4">
@@ -49,40 +45,6 @@ satélite nuevo aparece solo, sin tocar esta plantilla.
             <i data-lucide="mail" class="h-3 w-3"></i>
             Cambiar correo
         </a>
-        <a href="{% url 'ciudadania:mi_expediente' %}" class="inline-flex items-center gap-1.5 rounded-md border border-brand-accent/20 bg-brand-accent/10 px-2.5 py-1 font-mono text-xs font-black uppercase tracking-wider text-brand-accent hover:bg-brand-accent hover:text-white transition">
-            <i data-lucide="folder-open" class="h-3 w-3"></i>
-            Mi expediente
-        </a>
     </div>
 </section>
-
-{% if grupos_eventos %}
-    {% for grupo in grupos_eventos %}
-    <section class="mb-8">
-        <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 font-mono mb-3">{{ grupo.titulo }}</h2>
-        <div class="space-y-3">
-            {% for evento in grupo.eventos %}
-            <div class="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex gap-3">
-                <div class="h-8 w-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
-                    <i data-lucide="{{ grupo.icono }}" class="h-4 w-4"></i>
-                </div>
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-center justify-between gap-2">
-                        <h3 class="text-sm font-black text-gray-950 truncate">{{ evento.titulo }}</h3>
-                        <span class="shrink-0 text-xs font-bold text-gray-400 font-mono">{{ evento.creado_en|date:"d/m/Y" }}</span>
-                    </div>
-                    {% if evento.descripcion %}<p class="mt-1 text-xs text-gray-500 font-medium leading-relaxed">{{ evento.descripcion }}</p>{% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </section>
-    {% endfor %}
-{% else %}
-    <section>
-        <div class="bg-white p-6 rounded-2xl border border-dashed border-gray-200 text-center">
-            <p class="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">Todavía no tienes actividad registrada.</p>
-        </div>
-    </section>
-{% endif %}
 {% endblock %}

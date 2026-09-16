@@ -179,18 +179,20 @@ class CuentaLogueadaTests(TestCase):
             {"email": "vecino@example.mx", "password": "clave-vieja-larga"},
         )
 
-    def test_panel_sin_actividad_muestra_mensaje_generico(self):
-        # Bug real corregido: las secciones por satélite ya no están
-        # reservadas a mano — sin eventos, no hay nada que agrupar, y el
-        # panel muestra un solo mensaje genérico en vez de dos secciones
-        # vacías con nombres de satélites hardcodeados.
+    def test_resumen_sin_actividad_solo_trae_items_fijos_en_el_sidebar(self):
+        # Bug real corregido (segunda vuelta): el panel ya no apila la
+        # actividad de cada satélite en la misma página que la cuenta —
+        # cada categoría vive en su propia página (actividad.html),
+        # navegable desde un sidebar propio del panel. Sin actividad
+        # registrada, el sidebar solo trae "Resumen" y "Mi expediente".
         respuesta = self.client.get(reverse("ciudadania:cuenta"))
 
-        self.assertContains(respuesta, "Todavía no tienes actividad registrada.")
+        self.assertContains(respuesta, "Resumen")
+        self.assertContains(respuesta, "Mi expediente")
         self.assertNotContains(respuesta, "Mis trámites")
         self.assertNotContains(respuesta, "Mis situaciones de vida")
 
-    def test_panel_agrupa_eventos_por_satelite_dinamicamente(self):
+    def test_resumen_lista_categorias_en_el_sidebar_sin_declararlas_a_mano(self):
         services.registrar_evento(
             self.ciudadano.id,
             satelite_origen="tramites",
@@ -215,12 +217,57 @@ class CuentaLogueadaTests(TestCase):
         respuesta = self.client.get(reverse("ciudadania:cuenta"))
 
         self.assertContains(respuesta, "Mis trámites")
-        self.assertContains(respuesta, "Iniciaste tu acta de nacimiento")
         self.assertContains(respuesta, "Mis situaciones de vida")
-        self.assertContains(respuesta, "Avanzaste en Tuve un bebé")
+        self.assertContains(respuesta, "Pagos")
+        # El detalle de cada evento vive en su propia página, no aquí.
+        self.assertNotContains(respuesta, "Iniciaste tu acta de nacimiento")
+
+    def test_panel_actividad_muestra_solo_los_eventos_de_ese_satelite(self):
+        services.registrar_evento(
+            self.ciudadano.id,
+            satelite_origen="tramites",
+            tipo_evento="tramite_iniciado",
+            titulo="Iniciaste tu acta de nacimiento",
+        )
+        services.registrar_evento(
+            self.ciudadano.id,
+            satelite_origen="situaciones_de_vida",
+            tipo_evento="situacion_avanzada",
+            titulo="Avanzaste en Tuve un bebé",
+        )
+
+        respuesta = self.client.get(
+            reverse("ciudadania:panel_actividad", args=["tramites"])
+        )
+
+        self.assertContains(respuesta, "Mis trámites")
+        self.assertContains(respuesta, "Iniciaste tu acta de nacimiento")
+        self.assertNotContains(respuesta, "Avanzaste en Tuve un bebé")
+
+    def test_panel_actividad_de_satelite_nuevo_usa_titulo_por_defecto(self):
+        services.registrar_evento(
+            self.ciudadano.id,
+            satelite_origen="pagos",
+            tipo_evento="pago_confirmado",
+            titulo="Pagaste tu predial",
+        )
+
+        respuesta = self.client.get(reverse("ciudadania:panel_actividad", args=["pagos"]))
+
         self.assertContains(respuesta, "Pagos")
         self.assertContains(respuesta, "Pagaste tu predial")
-        self.assertNotContains(respuesta, "Todavía no tienes actividad registrada.")
+
+    def test_panel_actividad_sin_eventos_muestra_mensaje_vacio(self):
+        respuesta = self.client.get(reverse("ciudadania:panel_actividad", args=["tramites"]))
+
+        self.assertContains(respuesta, "Todavía no tienes actividad aquí.")
+
+    def test_panel_actividad_sin_sesion_redirige_a_login(self):
+        self.client.logout()
+
+        respuesta = self.client.get(reverse("ciudadania:panel_actividad", args=["tramites"]))
+
+        self.assertRedirects(respuesta, reverse("ciudadania:login"))
 
     @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
     def test_mi_expediente_permite_subir_y_lista_el_documento(self):

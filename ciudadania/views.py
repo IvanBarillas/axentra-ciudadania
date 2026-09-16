@@ -185,10 +185,7 @@ def restablecer_contrasena_view(request, token):
 # aquí simplemente usa el valor por defecto (su propio nombre técnico
 # convertido a título, ícono genérico). Nunca hace falta tocar esto para
 # que un satélite nuevo aparezca en el panel — es solo para que se vea
-# más pulido, no un requisito. Bug real señalado en vivo: antes había
-# una sección <section> hardcodeada por satélite en cuenta.html y una
-# llamada a obtener_linea_de_tiempo() por satélite aquí — con "mis
-# eventos", "mis pagos" y lo que siga, eso deja de ser sostenible.
+# más pulido, no un requisito.
 _METADATOS_SATELITE = {
     "tramites": {"titulo": "Mis trámites", "icono": "file-text"},
     "situaciones_de_vida": {"titulo": "Mis situaciones de vida", "icono": "signpost"},
@@ -196,15 +193,57 @@ _METADATOS_SATELITE = {
 _ICONO_POR_DEFECTO = "activity"
 
 
-def _decorar_grupo_linea_de_tiempo(grupo):
-    metadatos = _METADATOS_SATELITE.get(grupo.satelite_origen, {})
-    titulo = metadatos.get("titulo") or grupo.satelite_origen.replace("_", " ").replace("-", " ").title()
-    return {
-        "satelite_origen": grupo.satelite_origen,
-        "titulo": titulo,
-        "icono": metadatos.get("icono", _ICONO_POR_DEFECTO),
-        "eventos": grupo.eventos,
-    }
+def _titulo_e_icono_satelite(satelite_origen):
+    metadatos = _METADATOS_SATELITE.get(satelite_origen, {})
+    titulo = metadatos.get("titulo") or satelite_origen.replace("_", " ").replace("-", " ").title()
+    return titulo, metadatos.get("icono", _ICONO_POR_DEFECTO)
+
+
+def _construir_items_sidebar(ciudadano_id, *, activo):
+    """
+    Bug real señalado en vivo: el panel apilaba TODO en una sola
+    página (cuenta + cada satélite con su actividad completa, uno tras
+    otro) — con 20 módulos que un ciudadano pueda usar, eso deja de
+    ser navegable, aunque las secciones ya salieran solas (ver el
+    cambio anterior). La corrección real no es solo "que las
+    secciones no estén hardcodeadas" — es que cada categoría viva en
+    su propia página, con una navegación real entre ellas (mismo
+    espíritu que el sidebar contextual del Core, aquí propio del panel
+    del ciudadano, nunca del Hub).
+
+    `activo` es el identificador del item actual ("resumen",
+    "expediente", o el satelite_origen de la página de actividad que
+    se está viendo) — para resaltarlo en la plantilla. Se construye en
+    cada vista en vez de vivir en un context processor a propósito:
+    este paquete debe seguir siendo instalable en cualquier proyecto
+    Django sin tocar su settings.py.
+    """
+    items = [
+        {
+            "id": "resumen",
+            "titulo": "Resumen",
+            "icono": "home",
+            "url": reverse("ciudadania:cuenta"),
+            "activo": activo == "resumen",
+        },
+        {
+            "id": "expediente",
+            "titulo": "Mi expediente",
+            "icono": "folder-open",
+            "url": reverse("ciudadania:mi_expediente"),
+            "activo": activo == "expediente",
+        },
+    ]
+    for grupo in services.obtener_linea_de_tiempo_agrupada(ciudadano_id):
+        titulo, icono = _titulo_e_icono_satelite(grupo.satelite_origen)
+        items.append({
+            "id": grupo.satelite_origen,
+            "titulo": titulo,
+            "icono": icono,
+            "url": reverse("ciudadania:panel_actividad", args=[grupo.satelite_origen]),
+            "activo": activo == grupo.satelite_origen,
+        })
+    return items
 
 
 @requiere_ciudadania_habilitada
@@ -213,14 +252,33 @@ def cuenta_view(request):
     if ciudadano is None:
         return HttpResponseRedirect(reverse("ciudadania:login"))
 
-    grupos = services.obtener_linea_de_tiempo_agrupada(ciudadano.id)
-
     return render(
         request,
         "ciudadania/cuenta.html",
         {
             "ciudadano": ciudadano,
-            "grupos_eventos": [_decorar_grupo_linea_de_tiempo(g) for g in grupos],
+            "nav_items": _construir_items_sidebar(ciudadano.id, activo="resumen"),
+        },
+    )
+
+
+@requiere_ciudadania_habilitada
+def panel_actividad_view(request, satelite):
+    ciudadano = services.ciudadano_actual(request)
+    if ciudadano is None:
+        return HttpResponseRedirect(reverse("ciudadania:login"))
+
+    titulo, icono = _titulo_e_icono_satelite(satelite)
+
+    return render(
+        request,
+        "ciudadania/actividad.html",
+        {
+            "ciudadano": ciudadano,
+            "nav_items": _construir_items_sidebar(ciudadano.id, activo=satelite),
+            "titulo_categoria": titulo,
+            "icono_categoria": icono,
+            "eventos": services.obtener_linea_de_tiempo(ciudadano.id, satelite_origen=satelite),
         },
     )
 
@@ -335,6 +393,8 @@ def mi_expediente_view(request):
         request,
         "ciudadania/mi_expediente.html",
         {
+            "ciudadano": ciudadano,
+            "nav_items": _construir_items_sidebar(ciudadano.id, activo="expediente"),
             "expediente": services.obtener_expediente(ciudadano.id),
             "form": form,
             "mensaje_sobrescritura": mensaje_sobrescritura,
