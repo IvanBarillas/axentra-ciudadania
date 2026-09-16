@@ -116,6 +116,23 @@ tiene detalles concretos, no es solo "que se pueda iniciar un trámite":
   de nacimiento, CURP), con estado propio (pendiente/aceptado/
   rechazado) y motivo cuando se rechaza (ej. "acta vencida", para que
   el ciudadano sepa qué corregir y reenviar).
+  - **✅ Implementado — pero en `ciudadania`, no en
+    `axentra-mod-tramites`.** Se intentó primero dentro de
+    `axentra-mod-tramites` (ver su historial de commits: implementado
+    y luego revertido en la misma sesión) — corrección real de diseño:
+    `TipoDocumento`/`Documento` son documentos de identidad del propio
+    ciudadano, reutilizables entre trámites y entre cualquier otro
+    satélite futuro (este mismo documento ya menciona "Reportes
+    Ciudadanos" como consumidor posible de `obtener_datos_publicos`),
+    así que quedan mejor en `ciudadania` — mismo criterio que
+    `EventoExpediente` del punto 2. Ver `ciudadania/models.py`,
+    `ciudadania/services.py` (`convertir_a_pdf`,
+    `subir_documento_a_expediente`, `obtener_expediente`,
+    `existe_documento_de_tipo`, `actualizar_estado_documento`) y
+    `ciudadania:mi_expediente` (enlazado desde el panel del ciudadano).
+    `axentra-mod-tramites` (y cualquier otro satélite) lo consumirá
+    vía import perezoso (`try/except ImportError`), nunca con una
+    `ForeignKey` real — mismo patrón que ya usa `registrar_evento`.
   - **Detalle adicional del cliente (misma sesión, 2026-09-15):** los
     documentos que suba un ciudadano pueden llegar en formatos
     diversos (foto/imagen, PDF, etc.). En vez de que el sistema tenga
