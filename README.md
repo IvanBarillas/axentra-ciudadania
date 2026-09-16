@@ -63,6 +63,8 @@ Django (p. ej. `axentra-core-django`), agregando `"ciudadania"` a
       (`try/except ImportError`) + `actualizar_estado_documento()` para
       su panel de revisión — nunca tocando estos modelos directo, mismo
       patrón que `registrar_evento`.
+- [x] Diseño real por defecto en las 19 plantillas del flujo del
+      ciudadano — ver "Diseño de las plantillas públicas" más abajo.
 
 ## Decisión: sin panel en el Hub (v1)
 
@@ -101,11 +103,21 @@ Django, respetando el `EMAIL_BACKEND` que defina quien lo instale. Si
 de Django-Q2, lo resuelve con un `EMAIL_BACKEND` propio que delegue a
 `enqueue_email` — sin tocar una línea de este paquete.
 
-## Pendiente antes de instalarlo en `axentra-core-django` de verdad
+## Diseño de las plantillas públicas
 
-- Repo en GitHub (por ahora solo existe localmente — decisión explícita:
-  trabajo local primero).
-- Definir el mecanismo real de plantillas/estilos: las de este paquete
-  son HTML mínimo a propósito (sin CSS/Tailwind), pensadas para que quien
-  instale el paquete las sobreescriba con su propio `templates/ciudadania/`
-  si quiere otro diseño (patrón estándar de apps de Django reutilizables).
+Las 19 plantillas del flujo del ciudadano (login, registro, cuenta,
+expediente, cambios de contraseña/correo, páginas de confirmación) tienen
+un diseño real por defecto — build local de Tailwind offline
+(`tools/tailwind.py`, sin CDN, mismo mecanismo que
+`axentra-mod-situaciones-de-vida`), acorde al lenguaje visual del Core.
+Sigue siendo un paquete portable: quien lo instale puede sobreescribir
+cualquier plantilla con su propio `templates/ciudadania/` si quiere otro
+diseño (patrón estándar de apps de Django reutilizables) — este es solo
+el default razonable, no un requisito.
+
+Para reconstruir el CSS tras editar plantillas:
+
+```bash
+python tools/tailwind.py install
+python tools/tailwind.py build
+```
