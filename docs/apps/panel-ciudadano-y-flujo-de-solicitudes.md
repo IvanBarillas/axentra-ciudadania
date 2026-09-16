@@ -116,6 +116,27 @@ tiene detalles concretos, no es solo "que se pueda iniciar un trámite":
   de nacimiento, CURP), con estado propio (pendiente/aceptado/
   rechazado) y motivo cuando se rechaza (ej. "acta vencida", para que
   el ciudadano sepa qué corregir y reenviar).
+  - **Detalle adicional del cliente (misma sesión, 2026-09-15):** los
+    documentos que suba un ciudadano pueden llegar en formatos
+    diversos (foto/imagen, PDF, etc.). En vez de que el sistema tenga
+    que adivinar/soportar cada formato de origen, **todo lo que se
+    suba se convierte a PDF** al momento de subirlo — un solo formato
+    de almacenamiento y de revisión para el funcionario, sin importar
+    cómo llegó el original.
+  - **"Expediente" reutilizable entre trámites.** Un ciudadano no
+    resube el mismo documento cada vez: sus documentos ya aceptados
+    quedan disponibles como su "expediente" (identificados por tipo,
+    ej. "RFC", "CURP", "Acta de nacimiento"), y al iniciar o continuar
+    un trámite puede elegir **usar uno ya en su expediente** o
+    **subir uno nuevo** para ese mismo tipo de documento.
+  - **Un tipo de documento es único por ciudadano.** Si sube uno nuevo
+    de un tipo que ya existe en su expediente (ej. ya tiene un RFC
+    guardado y sube otro RFC), el sistema debe **advertirle
+    explícitamente** que ya existe uno de ese tipo antes de continuar
+    — si confirma, el nuevo **sobrescribe** al anterior (no queda
+    duplicado ni historial de versiones del archivo en sí, a
+    diferencia del historial de estados de la `Solicitud`, que sí
+    debe conservarse).
 - **Panel de revisión para el funcionario** — aceptar (pasa al
   siguiente paso) o rechazar (con motivo) cada documento/solicitud.
   Esto es una UI de revisión con estados reales, no un CRUD simple

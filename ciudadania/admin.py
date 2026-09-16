@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Ciudadano, EventoExpediente, IntentoAcceso
+from .models import Ciudadano, Documento, EventoExpediente, IntentoAcceso, TipoDocumento
 
 
 @admin.register(Ciudadano)
@@ -35,6 +35,37 @@ class IntentoAccesoAdmin(admin.ModelAdmin):
     list_filter = ("accion", "exitoso")
     search_fields = ("email", "ip")
     ordering = ("-creado_en",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(TipoDocumento)
+class TipoDocumentoAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "clave")
+    search_fields = ("nombre", "clave")
+    prepopulated_fields = {"clave": ("nombre",)}
+
+
+@admin.register(Documento)
+class DocumentoAdmin(admin.ModelAdmin):
+    """
+    Solo lectura — esto lo escriben los ciudadanos vía el flujo público
+    de expediente, y lo acepta/rechaza el panel de revisión de un
+    satélite (vía `services.actualizar_estado_documento`), no una
+    persona a mano desde aquí.
+    """
+
+    list_display = ("tipo_documento", "ciudadano", "estado", "subido_en", "actualizado_en")
+    list_filter = ("estado", "tipo_documento")
+    search_fields = ("ciudadano__email",)
+    ordering = ("-actualizado_en",)
 
     def has_add_permission(self, request):
         return False

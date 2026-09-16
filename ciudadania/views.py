@@ -7,6 +7,7 @@ from django.urls import reverse
 from . import services
 from .forms import (
     CambiarPasswordForm,
+    DocumentoUploadForm,
     LoginForm,
     NuevaPasswordForm,
     RegistroForm,
@@ -277,3 +278,41 @@ def confirmar_cambio_email_view(request, token):
         return render(request, "ciudadania/correo_ya_registrado.html", status=400)
 
     return render(request, "ciudadania/email_cambiado.html", {"ciudadano": ciudadano})
+
+
+@requiere_ciudadania_habilitada
+def mi_expediente_view(request):
+    ciudadano = services.ciudadano_actual(request)
+    if ciudadano is None:
+        return HttpResponseRedirect(reverse("ciudadania:login"))
+
+    mensaje_sobrescritura = None
+    if request.method == "POST":
+        form = DocumentoUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            tipo_documento = form.cleaned_data["tipo_documento"]
+            ya_existia = (
+                services.existe_documento_de_tipo(ciudadano.id, tipo_documento.clave) is not None
+            )
+            try:
+                services.subir_documento_a_expediente(
+                    ciudadano.id, tipo_documento.clave, form.cleaned_data["archivo"]
+                )
+            except services.FormatoNoSoportado as exc:
+                form.add_error("archivo", str(exc))
+            else:
+                if ya_existia:
+                    mensaje_sobrescritura = tipo_documento.nombre
+                form = DocumentoUploadForm()
+    else:
+        form = DocumentoUploadForm()
+
+    return render(
+        request,
+        "ciudadania/mi_expediente.html",
+        {
+            "expediente": services.obtener_expediente(ciudadano.id),
+            "form": form,
+            "mensaje_sobrescritura": mensaje_sobrescritura,
+        },
+    )

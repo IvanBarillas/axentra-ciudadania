@@ -1,6 +1,7 @@
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 
-from ciudadania.models import Ciudadano, EventoExpediente
+from ciudadania.models import Ciudadano, Documento, EventoExpediente, TipoDocumento
 
 
 class CiudadanoModelTests(TestCase):
@@ -58,3 +59,48 @@ class EventoExpedienteModelTests(TestCase):
         ciudadano.delete()
 
         self.assertFalse(EventoExpediente.objects.exists())
+
+
+class DocumentoModelTests(TestCase):
+    def setUp(self):
+        self.ciudadano = Ciudadano.objects.create_ciudadano(email="vecino@example.mx", password="x")
+        self.tipo_rfc = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+
+    def test_es_unico_por_tipo_y_ciudadano(self):
+        Documento.objects.create(
+            ciudadano=self.ciudadano, tipo_documento=self.tipo_rfc, archivo="expedientes/x.pdf"
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Documento.objects.create(
+                    ciudadano=self.ciudadano, tipo_documento=self.tipo_rfc, archivo="expedientes/y.pdf"
+                )
+
+    def test_mismo_tipo_para_otro_ciudadano_no_choca(self):
+        Documento.objects.create(
+            ciudadano=self.ciudadano, tipo_documento=self.tipo_rfc, archivo="expedientes/x.pdf"
+        )
+        otro = Ciudadano.objects.create_ciudadano(email="otro@example.mx", password="x")
+
+        documento_otro = Documento.objects.create(
+            ciudadano=otro, tipo_documento=self.tipo_rfc, archivo="expedientes/y.pdf"
+        )
+
+        self.assertIsNotNone(documento_otro.id)
+
+    def test_estado_por_defecto_es_pendiente(self):
+        documento = Documento.objects.create(
+            ciudadano=self.ciudadano, tipo_documento=self.tipo_rfc, archivo="expedientes/x.pdf"
+        )
+
+        self.assertEqual(documento.estado, Documento.Estado.PENDIENTE)
+
+    def test_se_borra_en_cascada_con_el_ciudadano(self):
+        Documento.objects.create(
+            ciudadano=self.ciudadano, tipo_documento=self.tipo_rfc, archivo="expedientes/x.pdf"
+        )
+
+        self.ciudadano.delete()
+
+        self.assertFalse(Documento.objects.exists())

@@ -1,9 +1,20 @@
+import io
+import os
+
 from django.contrib.sessions.backends.db import SessionStore
 from django.core import mail
-from django.test import RequestFactory, TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import RequestFactory, TestCase, override_settings
+from PIL import Image
 
 from ciudadania import services
-from ciudadania.models import Ciudadano
+from ciudadania.models import Ciudadano, Documento, TipoDocumento
+
+
+def _imagen_bytes(mode="RGB", color="red", size=(10, 10)):
+    buffer = io.BytesIO()
+    Image.new(mode, size, color).save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 class RegistroYVerificacionTests(TestCase):
@@ -397,3 +408,116 @@ class CorreoNoSePliegaTests(TestCase):
         crudo = mail.outbox[0].message().as_bytes().decode("utf-8")
         self.assertNotIn("=\n", crudo)
         self.assertIn(url, crudo)
+
+
+class ConvertirAPdfTests(TestCase):
+    def test_pdf_existente_se_deja_igual(self):
+        contenido_pdf = b"%PDF-1.4\n%fake pdf content"
+        archivo = SimpleUploadedFile("doc.pdf", contenido_pdf, content_type="application/pdf")
+
+        resultado = services.convertir_a_pdf(archivo)
+
+        self.assertEqual(resultado.read(), contenido_pdf)
+
+    def test_imagen_rgb_se_convierte_a_pdf(self):
+        archivo = SimpleUploadedFile("foto.png", _imagen_bytes(), content_type="image/png")
+
+        resultado = services.convertir_a_pdf(archivo)
+
+        self.assertTrue(resultado.read().startswith(b"%PDF"))
+
+    def test_imagen_con_canal_alfa_se_convierte_sin_reventar(self):
+        # img2pdf por sí solo rechaza imágenes con canal alfa
+        # (AlphaChannelError) — convertir_a_pdf debe aplanarlas primero.
+        archivo = SimpleUploadedFile(
+            "foto.png", _imagen_bytes(mode="RGBA", color=(255, 0, 0, 128)), content_type="image/png"
+        )
+
+        resultado = services.convertir_a_pdf(archivo)
+
+        self.assertTrue(resultado.read().startswith(b"%PDF"))
+
+    def test_formato_no_soportado_se_rechaza(self):
+        archivo = SimpleUploadedFile("nota.txt", b"esto no es ni pdf ni imagen", content_type="text/plain")
+
+        with self.assertRaises(services.FormatoNoSoportado):
+            services.convertir_a_pdf(archivo)
+
+
+@override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
+class ExpedienteTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="x")
+        self.tipo_rfc = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+
+    def _archivo_imagen(self, nombre="foto.png"):
+        return SimpleUploadedFile(nombre, _imagen_bytes(), content_type="image/png")
+
+    def test_sube_un_documento_nuevo(self):
+        documento = services.subir_documento_a_expediente(
+            self.ciudadano.id, self.tipo_rfc.clave, self._archivo_imagen()
+        )
+
+        self.assertEqual(documento.estado, Documento.Estado.PENDIENTE)
+        self.assertEqual(documento.ciudadano_id, self.ciudadano.id)
+        self.assertTrue(documento.archivo.name.endswith(".pdf"))
+
+    def test_existe_documento_de_tipo(self):
+        self.assertIsNone(services.existe_documento_de_tipo(self.ciudadano.id, self.tipo_rfc.clave))
+
+        services.subir_documento_a_expediente(self.ciudadano.id, self.tipo_rfc.clave, self._archivo_imagen())
+
+        self.assertIsNotNone(services.existe_documento_de_tipo(self.ciudadano.id, self.tipo_rfc.clave))
+
+    def test_subir_de_nuevo_sobrescribe_y_resetea_estado(self):
+        primero = services.subir_documento_a_expediente(
+            self.ciudadano.id, self.tipo_rfc.clave, self._archivo_imagen("uno.png")
+        )
+        primero.estado = Documento.Estado.ACEPTADO
+        primero.save(update_fields=["estado"])
+        archivo_anterior = primero.archivo.path
+
+        segundo = services.subir_documento_a_expediente(
+            self.ciudadano.id, self.tipo_rfc.clave, self._archivo_imagen("dos.png")
+        )
+
+        self.assertEqual(segundo.id, primero.id)
+        self.assertEqual(segundo.estado, Documento.Estado.PENDIENTE)
+        self.assertEqual(
+            Documento.objects.filter(ciudadano=self.ciudadano, tipo_documento=self.tipo_rfc).count(), 1
+        )
+        self.assertFalse(os.path.exists(archivo_anterior))
+
+    def test_obtener_expediente_solo_trae_documentos_del_ciudadano(self):
+        otro = services.registrar_ciudadano(email="otro@example.mx", password="x")
+        services.subir_documento_a_expediente(self.ciudadano.id, self.tipo_rfc.clave, self._archivo_imagen())
+        services.subir_documento_a_expediente(otro.id, self.tipo_rfc.clave, self._archivo_imagen())
+
+        expediente = services.obtener_expediente(self.ciudadano.id)
+
+        self.assertEqual(len(expediente), 1)
+
+
+class ActualizarEstadoDocumentoTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="x")
+        self.tipo_rfc = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+
+    @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
+    def test_acepta_documento(self):
+        documento = services.subir_documento_a_expediente(
+            self.ciudadano.id,
+            self.tipo_rfc.clave,
+            SimpleUploadedFile("foto.png", _imagen_bytes(), content_type="image/png"),
+        )
+
+        actualizado = services.actualizar_estado_documento(documento.id, Documento.Estado.ACEPTADO)
+
+        self.assertEqual(actualizado.estado, Documento.Estado.ACEPTADO)
+
+    def test_id_inexistente_devuelve_none(self):
+        resultado = services.actualizar_estado_documento(
+            "00000000-0000-0000-0000-000000000000", Documento.Estado.ACEPTADO
+        )
+
+        self.assertIsNone(resultado)

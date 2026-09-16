@@ -98,6 +98,82 @@ class EventoExpediente(models.Model):
         return f"{self.satelite_origen}: {self.titulo}"
 
 
+class TipoDocumento(models.Model):
+    """
+    Catálogo de tipos de documento de identidad que un ciudadano puede
+    guardar en su expediente (RFC, CURP, Acta de nacimiento...) — ver
+    docs/apps/panel-ciudadano-y-flujo-de-solicitudes.md, punto 3.
+
+    Vive en `ciudadania`, no en un satélite como `axentra-mod-tramites`
+    (decisión corregida en esa misma sesión, ver el commit que revierte
+    el intento original en ese repo): son documentos de identidad del
+    ciudadano, reutilizables entre trámites y entre cualquier otro
+    satélite futuro que también necesite leerlos — igual criterio que
+    ya se usó para `EventoExpediente`.
+
+    `clave` es el identificador estable que cruza el límite hacia otros
+    paquetes (ellos lo usan como texto libre, sin FK real — ver
+    `services.subir_documento_a_expediente`); nunca el `id` interno.
+    """
+
+    clave = models.SlugField(max_length=50, unique=True)
+    nombre = models.CharField(max_length=150)
+
+    class Meta:
+        verbose_name = "tipo de documento"
+        verbose_name_plural = "tipos de documento"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class Documento(models.Model):
+    """
+    Un documento del expediente del ciudadano. Un tipo de documento es
+    único por ciudadano (UniqueConstraint más abajo): subir uno nuevo
+    del mismo tipo SOBRESCRIBE este registro (ver
+    services.subir_documento_a_expediente) — no se guarda historial de
+    versiones del archivo en sí, solo el estado de revisión se resetea
+    a PENDIENTE en cada sobrescritura.
+
+    `archivo` siempre es un PDF: todo lo que sube el ciudadano se
+    convierte al subirlo (ver services.convertir_a_pdf) — un solo
+    formato de almacenamiento/revisión sin importar el formato de
+    origen.
+    """
+
+    class Estado(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente de revisión"
+        ACEPTADO = "aceptado", "Aceptado"
+        RECHAZADO = "rechazado", "Rechazado"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ciudadano = models.ForeignKey(Ciudadano, on_delete=models.CASCADE, related_name="documentos")
+    tipo_documento = models.ForeignKey(
+        TipoDocumento, on_delete=models.PROTECT, related_name="documentos"
+    )
+    archivo = models.FileField(upload_to="expedientes/%Y/%m/")
+    nombre_original = models.CharField(max_length=255, blank=True)
+    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.PENDIENTE)
+    motivo_rechazo = models.TextField(blank=True, default="")
+    subido_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "documento"
+        verbose_name_plural = "documentos"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["ciudadano", "tipo_documento"], name="un_documento_por_tipo_y_ciudadano"
+            )
+        ]
+        ordering = ["-actualizado_en"]
+
+    def __str__(self):
+        return f"{self.tipo_documento.nombre} ({self.ciudadano.email})"
+
+
 class IntentoAcceso(models.Model):
     """
     Bitácora mínima para frenar fuerza bruta — el equivalente a lo que

@@ -8,15 +8,19 @@ from __future__ import annotations
 
 import dataclasses
 import email.policy
+import io
 from datetime import datetime, timedelta
 
+import img2pdf
 from django.conf import settings
 from django.core import signing
+from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage
 from django.db.models import Q
 from django.utils import timezone
+from PIL import Image, UnidentifiedImageError
 
-from .models import Ciudadano, EventoExpediente, IntentoAcceso
+from .models import Ciudadano, Documento, EventoExpediente, IntentoAcceso, TipoDocumento
 
 # Hallazgo real (reportado por el usuario, probando contra el backend de
 # consola): la política de correo moderna de Python pliega cualquier línea
@@ -514,3 +518,132 @@ def obtener_linea_de_tiempo(ciudadano_id, *, satelite_origen: str | None = None)
         eventos = eventos.filter(satelite_origen=satelite_origen)
 
     return [_a_evento_publico(evento) for evento in eventos]
+
+
+# ======================================================================
+# Expediente del ciudadano (documentos) — ver
+# docs/apps/panel-ciudadano-y-flujo-de-solicitudes.md, punto 3.
+#
+# Vive aquí (no en un satélite como axentra-mod-tramites) porque son
+# documentos de identidad del propio ciudadano, reutilizables entre
+# trámites y entre cualquier otro satélite futuro que también los
+# necesite — mismo criterio que EventoExpediente arriba. Un satélite
+# que quiera leer/escribir el expediente lo hace SIEMPRE a través de
+# estas funciones (import perezoso + try/except ImportError, mismo
+# patrón que ya usa registrar_evento), nunca tocando estos modelos
+# directo — así ciudadania puede no estar instalada sin que el
+# satélite se rompa.
+# ======================================================================
+
+
+class FormatoNoSoportado(Exception):
+    """El archivo subido no es un PDF ni una imagen que se pueda convertir."""
+
+
+def convertir_a_pdf(archivo) -> ContentFile:
+    """
+    Todo lo que sube un ciudadano se convierte a PDF — un solo formato
+    de almacenamiento/revisión sin importar el formato de origen.
+
+    Si ya es un PDF (cabecera %PDF-), se guarda tal cual. Si Pillow
+    puede abrirlo como imagen, se aplana sobre fondo blanco (evita que
+    img2pdf rechace canales alfa/colorspaces raros — AlphaChannelError,
+    JpegColorspaceError) y se reconvierte a JPEG antes de envolverlo en
+    un PDF. Cualquier otro formato se rechaza con FormatoNoSoportado.
+    """
+    archivo.seek(0)
+    contenido = archivo.read()
+
+    if contenido[:5] == b"%PDF-":
+        return ContentFile(contenido, name="documento.pdf")
+
+    try:
+        imagen = Image.open(io.BytesIO(contenido))
+        imagen.load()
+    except UnidentifiedImageError as exc:
+        raise FormatoNoSoportado("Solo se aceptan imágenes o archivos PDF.") from exc
+
+    if imagen.mode in ("RGBA", "LA", "P"):
+        imagen = imagen.convert("RGBA")
+        fondo = Image.new("RGB", imagen.size, "white")
+        fondo.paste(imagen, mask=imagen.split()[-1])
+        imagen = fondo
+    else:
+        imagen = imagen.convert("RGB")
+
+    buffer_imagen = io.BytesIO()
+    imagen.save(buffer_imagen, format="JPEG")
+    pdf_bytes = img2pdf.convert(buffer_imagen.getvalue())
+    return ContentFile(pdf_bytes, name="documento.pdf")
+
+
+def obtener_tipos_documento() -> list[TipoDocumento]:
+    """Catálogo completo — para que un satélite (ej. el formulario de
+    pasos de un trámite) pueda ofrecer las claves existentes."""
+    return list(TipoDocumento.objects.all())
+
+
+def obtener_expediente(ciudadano_id) -> list[Documento]:
+    """Todos los documentos del expediente de un ciudadano."""
+    return list(Documento.objects.filter(ciudadano_id=ciudadano_id).select_related("tipo_documento"))
+
+
+def existe_documento_de_tipo(ciudadano_id, tipo_documento_clave: str) -> Documento | None:
+    return Documento.objects.filter(
+        ciudadano_id=ciudadano_id, tipo_documento__clave=tipo_documento_clave
+    ).first()
+
+
+def subir_documento_a_expediente(ciudadano_id, tipo_documento_clave: str, archivo) -> Documento:
+    """
+    Sube (o sobrescribe) el documento de un tipo dado en el expediente
+    del ciudadano. Un tipo de documento es único por ciudadano — si ya
+    existe uno, este método lo sobrescribe (nuevo archivo, nombre
+    original y estado vuelto a PENDIENTE); no guarda historial de
+    versiones del archivo. El aviso al ciudadano de que ya existe uno
+    de ese tipo se resuelve en la vista (existe_documento_de_tipo),
+    ANTES de llegar aquí.
+    """
+    tipo_documento = TipoDocumento.objects.get(clave=tipo_documento_clave)
+    pdf = convertir_a_pdf(archivo)
+
+    documento = Documento.objects.filter(
+        ciudadano_id=ciudadano_id, tipo_documento=tipo_documento
+    ).first()
+    # Nombre (string) del archivo físico anterior, si lo hay, para
+    # borrarlo DESPUÉS de guardar el nuevo — capturado como string, no
+    # como el objeto FieldFile: `documento.archivo.save()` más abajo
+    # muta ese mismo objeto in-place (le cambia el `.name`), así que
+    # guardar solo la referencia terminaría apuntando al archivo NUEVO,
+    # no al viejo (hallazgo real, ver el commit que lo corrigió).
+    nombre_archivo_anterior = documento.archivo.name if documento and documento.archivo else None
+    storage_anterior = documento.archivo.storage if documento else None
+
+    if documento is None:
+        documento = Documento(ciudadano_id=ciudadano_id, tipo_documento=tipo_documento)
+
+    documento.nombre_original = getattr(archivo, "name", "")
+    documento.estado = Documento.Estado.PENDIENTE
+    documento.motivo_rechazo = ""
+    documento.archivo.save(pdf.name, pdf, save=True)
+
+    if nombre_archivo_anterior:
+        storage_anterior.delete(nombre_archivo_anterior)
+
+    return documento
+
+
+def actualizar_estado_documento(documento_id, estado: str, *, motivo_rechazo: str = "") -> Documento | None:
+    """
+    Para que el panel de revisión de un satélite (ej. el dashboard de
+    trámites) acepte/rechace un documento sin tocar el ORM de
+    `ciudadania` directo — mismo principio que registrar_evento.
+    """
+    documento = Documento.objects.filter(id=documento_id).first()
+    if documento is None:
+        return None
+
+    documento.estado = estado
+    documento.motivo_rechazo = motivo_rechazo if estado == Documento.Estado.RECHAZADO else ""
+    documento.save(update_fields=["estado", "motivo_rechazo", "actualizado_en"])
+    return documento

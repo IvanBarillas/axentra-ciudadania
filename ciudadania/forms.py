@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 
-from .models import Ciudadano
+from .models import Ciudadano, TipoDocumento
 
 
 class ConfirmacionDePasswordMixin:
@@ -77,3 +77,14 @@ class CambiarPasswordForm(ConfirmacionDePasswordMixin, forms.Form):
 class SolicitarCambioEmailForm(forms.Form):
     password_actual = forms.CharField(label="Contraseña actual", widget=forms.PasswordInput)
     nuevo_email = forms.EmailField(label="Nuevo correo")
+
+
+class DocumentoUploadForm(forms.Form):
+    """Subida al expediente — no es ModelForm porque el archivo se
+    convierte a PDF en el servicio (services.subir_documento_a_expediente)
+    antes de tocar el modelo Documento."""
+
+    tipo_documento = forms.ModelChoiceField(
+        queryset=TipoDocumento.objects.all(), label="Tipo de documento"
+    )
+    archivo = forms.FileField(label="Archivo (imagen o PDF)")

@@ -23,4 +23,5 @@ urlpatterns = [
         views.confirmar_cambio_email_view,
         name="confirmar_cambio_email",
     ),
+    path("cuenta/expediente/", views.mi_expediente_view, name="mi_expediente"),
 ]

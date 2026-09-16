@@ -44,6 +44,25 @@ Django (p. ej. `axentra-core-django`), agregando `"ciudadania"` a
       la bitácora de fuerza bruta, que si no se agota crece para siempre.
 - [ ] `module_manifest.py` / `permissions.py` — **decidido que NO aplica**
       (ver más abajo): sin panel en el Hub para v1.
+- [x] Panel del ciudadano (`ciudadania:cuenta`) con secciones "Mis
+      trámites"/"Mis situaciones de vida", y `EventoExpediente` +
+      `registrar_evento()`/`obtener_linea_de_tiempo()` — línea de tiempo
+      genérica entre satélites (ver
+      `docs/apps/panel-ciudadano-y-flujo-de-solicitudes.md`, puntos 1 y 2).
+- [x] Expediente del ciudadano: `TipoDocumento`/`Documento` +
+      `subir_documento_a_expediente()`/`obtener_expediente()` — todo lo
+      que sube el ciudadano se convierte a PDF (`convertir_a_pdf`, Pillow
+      + `img2pdf`), un tipo de documento es único por ciudadano
+      (sobrescribir resetea el estado a pendiente). Vive aquí, no en un
+      satélite como `axentra-mod-tramites` — son documentos de identidad
+      del ciudadano, reutilizables entre trámites y entre cualquier otro
+      satélite futuro (mismo punto 3 del documento arriba; corrección
+      real de diseño: se había implementado primero en
+      `axentra-mod-tramites` y se movió aquí en la misma sesión).
+      Satélites externos lo consumen vía import perezoso
+      (`try/except ImportError`) + `actualizar_estado_documento()` para
+      su panel de revisión — nunca tocando estos modelos directo, mismo
+      patrón que `registrar_evento`.
 
 ## Decisión: sin panel en el Hub (v1)
 

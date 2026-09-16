@@ -1,11 +1,12 @@
 import re
 
 from django.core import mail
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from ciudadania import services
-from ciudadania.models import Ciudadano
+from ciudadania.models import Ciudadano, TipoDocumento
 
 
 class FlujoCompletoTests(TestCase):
@@ -204,6 +205,44 @@ class CuentaLogueadaTests(TestCase):
         self.assertContains(respuesta, "Avanzaste en Tuve un bebé")
         self.assertNotContains(respuesta, "Todavía no tienes trámites en curso.")
         self.assertNotContains(respuesta, "Todavía no tienes situaciones de vida en seguimiento.")
+
+    @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
+    def test_mi_expediente_permite_subir_y_lista_el_documento(self):
+        TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+
+        respuesta = self.client.get(reverse("ciudadania:mi_expediente"))
+        self.assertContains(respuesta, "Mi expediente")
+
+        archivo = SimpleUploadedFile("rfc.pdf", b"%PDF-1.4\nfake", content_type="application/pdf")
+        respuesta = self.client.post(
+            reverse("ciudadania:mi_expediente"), {"tipo_documento": 1, "archivo": archivo}
+        )
+
+        self.assertContains(respuesta, "RFC")
+        self.assertContains(respuesta, "Pendiente de revisión")
+
+    @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
+    def test_mi_expediente_avisa_al_sobrescribir(self):
+        tipo = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+        services.subir_documento_a_expediente(
+            self.ciudadano.id,
+            tipo.clave,
+            SimpleUploadedFile("viejo.pdf", b"%PDF-1.4\nviejo", content_type="application/pdf"),
+        )
+
+        archivo_nuevo = SimpleUploadedFile("nuevo.pdf", b"%PDF-1.4\nnuevo", content_type="application/pdf")
+        respuesta = self.client.post(
+            reverse("ciudadania:mi_expediente"), {"tipo_documento": tipo.id, "archivo": archivo_nuevo}
+        )
+
+        self.assertContains(respuesta, 'Se reemplazó tu documento anterior de tipo "RFC"')
+
+    def test_mi_expediente_sin_sesion_redirige_a_login(self):
+        self.client.post(reverse("ciudadania:logout"))
+
+        respuesta = self.client.get(reverse("ciudadania:mi_expediente"))
+
+        self.assertRedirects(respuesta, reverse("ciudadania:login"))
 
     def test_cambiar_password_sin_sesion_redirige_a_login(self):
         self.client.post(reverse("ciudadania:logout"))

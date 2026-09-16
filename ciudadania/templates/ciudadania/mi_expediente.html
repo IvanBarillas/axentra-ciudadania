@@ -1,0 +1,34 @@
+<h1>Mi expediente</h1>
+<p>
+  Los documentos que subas aquí se guardan una sola vez y se pueden reutilizar
+  en cualquier trámite — no hace falta volver a subirlos cada vez.
+</p>
+
+{% if mensaje_sobrescritura %}
+<p>Se reemplazó tu documento anterior de tipo "{{ mensaje_sobrescritura }}" por el que acabas de subir.</p>
+{% endif %}
+
+<h2>Documentos guardados</h2>
+{% if expediente %}
+<ul>
+  {% for documento in expediente %}
+  <li>
+    {{ documento.tipo_documento.nombre }} — {{ documento.get_estado_display }}
+    {% if documento.estado == "rechazado" and documento.motivo_rechazo %}
+    ({{ documento.motivo_rechazo }})
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>Todavía no tienes documentos guardados.</p>
+{% endif %}
+
+<h2>Subir un documento</h2>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Subir documento</button>
+</form>
+
+<p><a href="{% url 'ciudadania:cuenta' %}">Volver a mi cuenta</a></p>
