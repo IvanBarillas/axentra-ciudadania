@@ -180,23 +180,47 @@ def restablecer_contrasena_view(request, token):
     return render(request, "ciudadania/restablecer_contrasena.html", {"form": form})
 
 
+# Metadatos de presentación, opcionales, para satélites ya conocidos —
+# un satélite nuevo que empiece a llamar registrar_evento() y no esté
+# aquí simplemente usa el valor por defecto (su propio nombre técnico
+# convertido a título, ícono genérico). Nunca hace falta tocar esto para
+# que un satélite nuevo aparezca en el panel — es solo para que se vea
+# más pulido, no un requisito. Bug real señalado en vivo: antes había
+# una sección <section> hardcodeada por satélite en cuenta.html y una
+# llamada a obtener_linea_de_tiempo() por satélite aquí — con "mis
+# eventos", "mis pagos" y lo que siga, eso deja de ser sostenible.
+_METADATOS_SATELITE = {
+    "tramites": {"titulo": "Mis trámites", "icono": "file-text"},
+    "situaciones_de_vida": {"titulo": "Mis situaciones de vida", "icono": "signpost"},
+}
+_ICONO_POR_DEFECTO = "activity"
+
+
+def _decorar_grupo_linea_de_tiempo(grupo):
+    metadatos = _METADATOS_SATELITE.get(grupo.satelite_origen, {})
+    titulo = metadatos.get("titulo") or grupo.satelite_origen.replace("_", " ").replace("-", " ").title()
+    return {
+        "satelite_origen": grupo.satelite_origen,
+        "titulo": titulo,
+        "icono": metadatos.get("icono", _ICONO_POR_DEFECTO),
+        "eventos": grupo.eventos,
+    }
+
+
 @requiere_ciudadania_habilitada
 def cuenta_view(request):
     ciudadano = services.ciudadano_actual(request)
     if ciudadano is None:
         return HttpResponseRedirect(reverse("ciudadania:login"))
 
+    grupos = services.obtener_linea_de_tiempo_agrupada(ciudadano.id)
+
     return render(
         request,
         "ciudadania/cuenta.html",
         {
             "ciudadano": ciudadano,
-            "eventos_tramites": services.obtener_linea_de_tiempo(
-                ciudadano.id, satelite_origen="tramites"
-            ),
-            "eventos_situaciones": services.obtener_linea_de_tiempo(
-                ciudadano.id, satelite_origen="situaciones_de_vida"
-            ),
+            "grupos_eventos": [_decorar_grupo_linea_de_tiempo(g) for g in grupos],
         },
     )
 

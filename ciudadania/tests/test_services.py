@@ -290,6 +290,42 @@ class EventoExpedienteTests(TestCase):
 
         self.assertEqual(services.obtener_linea_de_tiempo(self.ciudadano.id), [])
 
+    def test_obtener_linea_de_tiempo_agrupada_no_declara_satelites_a_mano(self):
+        # Un satélite que nunca existió cuando se escribió esta función
+        # debe agruparse igual, sin tocar código — es justo el problema
+        # que resuelve (antes había una sección hardcodeada por satélite
+        # conocido en el panel).
+        services.registrar_evento(
+            self.ciudadano.id, satelite_origen="tramites", tipo_evento="x", titulo="De trámites"
+        )
+        services.registrar_evento(
+            self.ciudadano.id, satelite_origen="pagos", tipo_evento="x", titulo="De pagos"
+        )
+
+        grupos = services.obtener_linea_de_tiempo_agrupada(self.ciudadano.id)
+        por_satelite = {grupo.satelite_origen: grupo.eventos for grupo in grupos}
+
+        self.assertEqual(set(por_satelite), {"tramites", "pagos"})
+        self.assertEqual(len(por_satelite["tramites"]), 1)
+        self.assertEqual(por_satelite["tramites"][0].titulo, "De trámites")
+        self.assertEqual(len(por_satelite["pagos"]), 1)
+        self.assertEqual(por_satelite["pagos"][0].titulo, "De pagos")
+
+    def test_obtener_linea_de_tiempo_agrupada_ordena_grupos_por_actividad_mas_reciente(self):
+        services.registrar_evento(
+            self.ciudadano.id, satelite_origen="tramites", tipo_evento="x", titulo="Primero"
+        )
+        services.registrar_evento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida", tipo_evento="x", titulo="Segundo"
+        )
+
+        grupos = services.obtener_linea_de_tiempo_agrupada(self.ciudadano.id)
+
+        self.assertEqual([grupo.satelite_origen for grupo in grupos], ["situaciones_de_vida", "tramites"])
+
+    def test_obtener_linea_de_tiempo_agrupada_sin_eventos_devuelve_lista_vacia(self):
+        self.assertEqual(services.obtener_linea_de_tiempo_agrupada(self.ciudadano.id), [])
+
 
 class CambiarPasswordTests(TestCase):
     def setUp(self):
