@@ -1,2 +1,5 @@
-<h1>Revisa tu correo</h1>
-<p>Enviamos un enlace de verificación a {{ ciudadano.email }}.</p>
+{% extends "ciudadania/_confirmacion_base.html" %}
+{% block title %}Revisa tu correo{% endblock %}
+{% block icon %}mail{% endblock %}
+{% block confirm_title %}Revisa tu correo{% endblock %}
+{% block confirm_body %}Enviamos un enlace de verificación a {{ ciudadano.email }}.{% endblock %}

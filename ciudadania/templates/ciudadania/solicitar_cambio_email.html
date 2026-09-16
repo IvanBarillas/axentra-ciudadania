@@ -1,7 +1,27 @@
-<h1>Cambiar correo</h1>
-{% if error %}<p>{{ error }}</p>{% endif %}
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Enviar confirmación</button>
-</form>
+{% extends "ciudadania/_base_publica.html" %}
+{% block title %}Cambiar correo{% endblock %}
+
+{% block content %}
+<a href="{% url 'ciudadania:cuenta' %}" class="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-500 hover:text-brand-primary transition mb-6">
+    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+    Volver a mi cuenta
+</a>
+
+<section class="max-w-sm mx-auto">
+    <h1 class="text-2xl font-black text-gray-950 tracking-tight text-center mb-6">Cambiar correo</h1>
+
+    <div class="bg-white p-6 rounded-[24px] border border-gray-200/90 shadow-2xs">
+        {% if error %}
+        <div class="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" class="space-y-4 form-as-p [&_.errorlist]:text-xs [&_.errorlist]:text-red-600 [&_.errorlist]:font-bold [&_.errorlist]:list-none [&_.errorlist]:p-0 [&_.errorlist]:m-0">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="w-full bg-brand-primary hover:brightness-110 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition shadow-sm cursor-pointer">
+                Enviar confirmación
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}

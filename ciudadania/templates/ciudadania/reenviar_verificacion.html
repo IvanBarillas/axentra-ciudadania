@@ -1,6 +1,18 @@
-<h1>Reenviar verificación de correo</h1>
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Reenviar</button>
-</form>
+{% extends "ciudadania/_base_publica.html" %}
+{% block title %}Reenviar verificación de correo{% endblock %}
+
+{% block content %}
+<section class="max-w-sm mx-auto">
+    <h1 class="text-2xl font-black text-gray-950 tracking-tight text-center mb-6">Reenviar verificación de correo</h1>
+
+    <div class="bg-white p-6 rounded-[24px] border border-gray-200/90 shadow-2xs">
+        <form method="post" class="space-y-4 form-as-p [&_.errorlist]:text-xs [&_.errorlist]:text-red-600 [&_.errorlist]:font-bold [&_.errorlist]:list-none [&_.errorlist]:p-0 [&_.errorlist]:m-0">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="w-full bg-brand-primary hover:brightness-110 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition shadow-sm cursor-pointer">
+                Reenviar
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -1,2 +1,5 @@
-<h1>Confirma tu nuevo correo</h1>
-<p>Enviamos un enlace de confirmación a {{ nuevo_email }}. Tu correo actual sigue activo hasta que confirmes.</p>
+{% extends "ciudadania/_confirmacion_base.html" %}
+{% block title %}Confirma tu nuevo correo{% endblock %}
+{% block icon %}mail-check{% endblock %}
+{% block confirm_title %}Confirma tu nuevo correo{% endblock %}
+{% block confirm_body %}Enviamos un enlace de confirmación a {{ nuevo_email }}. Tu correo actual sigue activo hasta que confirmes.{% endblock %}

@@ -1,2 +1,10 @@
-<h1>Contraseña actualizada</h1>
-<p><a href="{% url 'ciudadania:login' %}">Iniciar sesión</a></p>
+{% extends "ciudadania/_confirmacion_base.html" %}
+{% block title %}Contraseña actualizada{% endblock %}
+{% block icon %}check-circle{% endblock %}
+{% block confirm_title %}Contraseña actualizada{% endblock %}
+{% block confirm_body %}Ya puedes iniciar sesión con tu nueva contraseña.{% endblock %}
+{% block confirm_cta %}
+<a href="{% url 'ciudadania:login' %}" class="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition hover:brightness-110">
+    Iniciar sesión
+</a>
+{% endblock %}

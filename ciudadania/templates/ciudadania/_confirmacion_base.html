@@ -1,0 +1,22 @@
+{% extends "ciudadania/_base_publica.html" %}
+{% comment %}
+Base compartida para las ~10 páginas de solo mensaje (confirmaciones,
+errores, "revisa tu correo") — todas tenían la misma forma real (título +
+un párrafo, a veces un enlace) antes de este diseño; en vez de repetir la
+misma tarjeta centrada 10 veces, un solo lugar la define y cada página
+solo llena icono/color/título/cuerpo/enlace vía bloques.
+{% endcomment %}
+
+{% block content %}
+<section class="max-w-md mx-auto text-center">
+    <div class="mx-auto h-14 w-14 rounded-2xl {% block icon_bg %}bg-brand-accent/10 text-brand-accent{% endblock %} flex items-center justify-center">
+        <i data-lucide="{% block icon %}check{% endblock %}" class="h-6 w-6"></i>
+    </div>
+
+    <h1 class="mt-5 text-xl font-black text-gray-950 uppercase tracking-tight">{% block confirm_title %}{% endblock %}</h1>
+
+    <p class="mt-3 text-sm text-gray-500 font-medium leading-relaxed">{% block confirm_body %}{% endblock %}</p>
+
+    {% block confirm_cta %}{% endblock %}
+</section>
+{% endblock %}

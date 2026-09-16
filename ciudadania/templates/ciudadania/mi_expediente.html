@@ -1,34 +1,67 @@
-<h1>Mi expediente</h1>
-<p>
-  Los documentos que subas aquí se guardan una sola vez y se pueden reutilizar
-  en cualquier trámite — no hace falta volver a subirlos cada vez.
-</p>
+{% extends "ciudadania/_base_publica.html" %}
+{% block title %}Mi expediente{% endblock %}
 
-{% if mensaje_sobrescritura %}
-<p>Se reemplazó tu documento anterior de tipo "{{ mensaje_sobrescritura }}" por el que acabas de subir.</p>
-{% endif %}
+{% block content %}
+<a href="{% url 'ciudadania:cuenta' %}" class="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-500 hover:text-brand-primary transition mb-6">
+    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+    Volver a mi cuenta
+</a>
 
-<h2>Documentos guardados</h2>
-{% if expediente %}
-<ul>
-  {% for documento in expediente %}
-  <li>
-    {{ documento.tipo_documento.nombre }} — {{ documento.get_estado_display }}
-    {% if documento.estado == "rechazado" and documento.motivo_rechazo %}
-    ({{ documento.motivo_rechazo }})
+<section class="mb-8">
+    <h1 class="text-2xl font-black text-gray-950 tracking-tight">Mi expediente</h1>
+    <p class="mt-2 text-sm text-gray-500 font-medium leading-relaxed">
+        Los documentos que subas aquí se guardan una sola vez y se pueden reutilizar en cualquier trámite — no hace falta volver a subirlos cada vez.
+    </p>
+
+    {% if mensaje_sobrescritura %}
+    <div class="mt-4 rounded-xl border border-brand-accent/30 bg-brand-accent/10 p-3 text-xs font-bold text-brand-accent">
+        Se reemplazó tu documento anterior de tipo "{{ mensaje_sobrescritura }}" por el que acabas de subir.
+    </div>
     {% endif %}
-  </li>
-  {% endfor %}
-</ul>
-{% else %}
-<p>Todavía no tienes documentos guardados.</p>
-{% endif %}
+</section>
 
-<h2>Subir un documento</h2>
-<form method="post" enctype="multipart/form-data">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Subir documento</button>
-</form>
+<section class="mb-8">
+    <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 font-mono mb-3">Documentos guardados</h2>
+    {% if expediente %}
+    <div class="space-y-3">
+        {% for documento in expediente %}
+        <div class="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex items-center gap-3">
+            <div class="h-9 w-9 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+                <i data-lucide="file-text" class="h-4 w-4"></i>
+            </div>
+            <div class="min-w-0 flex-1">
+                <h3 class="text-sm font-black text-gray-950">{{ documento.tipo_documento.nombre }}</h3>
+                {% if documento.estado == "rechazado" and documento.motivo_rechazo %}
+                <p class="mt-0.5 text-xs text-red-600 font-medium">{{ documento.motivo_rechazo }}</p>
+                {% endif %}
+            </div>
+            {% if documento.estado == "aceptado" %}
+            <span class="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-mono text-xs font-black uppercase tracking-wider text-emerald-700">{{ documento.get_estado_display }}</span>
+            {% elif documento.estado == "rechazado" %}
+            <span class="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 py-1 font-mono text-xs font-black uppercase tracking-wider text-red-700">{{ documento.get_estado_display }}</span>
+            {% else %}
+            <span class="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-mono text-xs font-black uppercase tracking-wider text-amber-700">{{ documento.get_estado_display }}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white p-6 rounded-2xl border border-dashed border-gray-200 text-center">
+        <p class="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">Todavía no tienes documentos guardados.</p>
+    </div>
+    {% endif %}
+</section>
 
-<p><a href="{% url 'ciudadania:cuenta' %}">Volver a mi cuenta</a></p>
+<section>
+    <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 font-mono mb-3">Subir un documento</h2>
+    <div class="bg-white p-6 rounded-[24px] border border-gray-200/90 shadow-2xs">
+        <form method="post" enctype="multipart/form-data" class="space-y-4 form-as-p [&_.errorlist]:text-xs [&_.errorlist]:text-red-600 [&_.errorlist]:font-bold [&_.errorlist]:list-none [&_.errorlist]:p-0 [&_.errorlist]:m-0">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="w-full bg-brand-primary hover:brightness-110 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition shadow-sm cursor-pointer">
+                Subir documento
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}
