@@ -1,0 +1,18 @@
+/* Fuente: editar aquí y ejecutar python tools/tailwind.py build. */
+@import "tailwindcss" source(none);
+@source "../../ciudadania/templates";
+
+/* Mismos valores que axentra-core-django/assets/css/tailwind.css (@theme):
+   no son una paleta propia, son los del Core repetidos para que
+   bg-brand-primary/etc. resuelvan al mismo color aquí y allá. El shell
+   real del Core carga su propio CSS aparte; este archivo compila las
+   clases que las plantillas de este paquete usan y que el build del Core
+   nunca ve (escanea solo sus propias templates/ y apps/, no las de
+   satélites instalados aparte) — mismo mecanismo ya usado en
+   axentra-mod-tramites y axentra-mod-situaciones-de-vida. */
+@theme {
+  --font-sans: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
+  --color-brand-primary: #6B1D2F;
+  --color-brand-secondary: #4A5568;
+  --color-brand-accent: #059669;
+}

@@ -4,6 +4,16 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 from .models import Ciudadano, TipoDocumento
 
+# Mismo patrón que ya usan axentra-mod-tramites/axentra-mod-situaciones-de-vida
+# para sus propios formularios: clase de Tailwind directa en el widget, en vez
+# de un ModelForm/mixin genérico — este paquete no tiene uno propio todavía y
+# son pocos campos.
+_INPUT_CLASS = (
+    "w-full rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-2.5 text-sm "
+    "text-gray-900 outline-none transition-all focus:border-brand-primary "
+    "focus:bg-white focus:ring-1 focus:ring-brand-primary"
+)
+
 
 class ConfirmacionDePasswordMixin:
     """
@@ -38,10 +48,10 @@ class ConfirmacionDePasswordMixin:
 
 
 class RegistroForm(ConfirmacionDePasswordMixin, forms.Form):
-    email = forms.EmailField(label="Correo")
-    nombre_completo = forms.CharField(label="Nombre completo", max_length=255, required=False)
-    password = forms.CharField(label="Contraseña", widget=forms.PasswordInput, min_length=8)
-    password_confirmacion = forms.CharField(label="Confirma tu contraseña", widget=forms.PasswordInput)
+    email = forms.EmailField(label="Correo", widget=forms.EmailInput(attrs={"class": _INPUT_CLASS}))
+    nombre_completo = forms.CharField(label="Nombre completo", max_length=255, required=False, widget=forms.TextInput(attrs={"class": _INPUT_CLASS}))
+    password = forms.CharField(label="Contraseña", widget=forms.PasswordInput(attrs={"class": _INPUT_CLASS}), min_length=8)
+    password_confirmacion = forms.CharField(label="Confirma tu contraseña", widget=forms.PasswordInput(attrs={"class": _INPUT_CLASS}))
 
     def clean_email(self):
         email = self.cleaned_data["email"]
@@ -51,32 +61,32 @@ class RegistroForm(ConfirmacionDePasswordMixin, forms.Form):
 
 
 class LoginForm(forms.Form):
-    email = forms.EmailField(label="Correo")
-    password = forms.CharField(label="Contraseña", widget=forms.PasswordInput)
+    email = forms.EmailField(label="Correo", widget=forms.EmailInput(attrs={"class": _INPUT_CLASS}))
+    password = forms.CharField(label="Contraseña", widget=forms.PasswordInput(attrs={"class": _INPUT_CLASS}))
 
 
 class SolicitarRestablecimientoForm(forms.Form):
-    email = forms.EmailField(label="Correo")
+    email = forms.EmailField(label="Correo", widget=forms.EmailInput(attrs={"class": _INPUT_CLASS}))
 
 
 class SolicitarReenvioVerificacionForm(forms.Form):
-    email = forms.EmailField(label="Correo")
+    email = forms.EmailField(label="Correo", widget=forms.EmailInput(attrs={"class": _INPUT_CLASS}))
 
 
 class NuevaPasswordForm(ConfirmacionDePasswordMixin, forms.Form):
-    password = forms.CharField(label="Nueva contraseña", widget=forms.PasswordInput, min_length=8)
-    password_confirmacion = forms.CharField(label="Confirma tu nueva contraseña", widget=forms.PasswordInput)
+    password = forms.CharField(label="Nueva contraseña", widget=forms.PasswordInput(attrs={"class": _INPUT_CLASS}), min_length=8)
+    password_confirmacion = forms.CharField(label="Confirma tu nueva contraseña", widget=forms.PasswordInput(attrs={"class": _INPUT_CLASS}))
 
 
 class CambiarPasswordForm(ConfirmacionDePasswordMixin, forms.Form):
-    password_actual = forms.CharField(label="Contraseña actual", widget=forms.PasswordInput)
-    password = forms.CharField(label="Nueva contraseña", widget=forms.PasswordInput, min_length=8)
-    password_confirmacion = forms.CharField(label="Confirma tu nueva contraseña", widget=forms.PasswordInput)
+    password_actual = forms.CharField(label="Contraseña actual", widget=forms.PasswordInput(attrs={"class": _INPUT_CLASS}))
+    password = forms.CharField(label="Nueva contraseña", widget=forms.PasswordInput(attrs={"class": _INPUT_CLASS}), min_length=8)
+    password_confirmacion = forms.CharField(label="Confirma tu nueva contraseña", widget=forms.PasswordInput(attrs={"class": _INPUT_CLASS}))
 
 
 class SolicitarCambioEmailForm(forms.Form):
-    password_actual = forms.CharField(label="Contraseña actual", widget=forms.PasswordInput)
-    nuevo_email = forms.EmailField(label="Nuevo correo")
+    password_actual = forms.CharField(label="Contraseña actual", widget=forms.PasswordInput(attrs={"class": _INPUT_CLASS}))
+    nuevo_email = forms.EmailField(label="Nuevo correo", widget=forms.EmailInput(attrs={"class": _INPUT_CLASS}))
 
 
 class DocumentoUploadForm(forms.Form):
@@ -85,6 +95,18 @@ class DocumentoUploadForm(forms.Form):
     antes de tocar el modelo Documento."""
 
     tipo_documento = forms.ModelChoiceField(
-        queryset=TipoDocumento.objects.all(), label="Tipo de documento"
+        queryset=TipoDocumento.objects.all(), label="Tipo de documento",
+        widget=forms.Select(attrs={"class": _INPUT_CLASS}),
     )
-    archivo = forms.FileField(label="Archivo (imagen o PDF)")
+    archivo = forms.FileField(
+        label="Archivo (imagen o PDF)",
+        widget=forms.ClearableFileInput(attrs={
+            "class": (
+                "block w-full text-xs text-gray-500 "
+                "file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 "
+                "file:text-xs file:font-black file:uppercase file:tracking-widest "
+                "file:bg-brand-primary file:text-white hover:file:brightness-110 "
+                "file:transition-colors file:cursor-pointer"
+            )
+        }),
+    )

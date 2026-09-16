@@ -1,2 +1,6 @@
-<h1>Ese correo ya está en uso</h1>
-<p>Alguien más ya registró ese correo mientras tanto — no se hizo el cambio.</p>
+{% extends "ciudadania/_confirmacion_base.html" %}
+{% block title %}Ese correo ya está en uso{% endblock %}
+{% block icon_bg %}bg-red-50 text-red-600{% endblock %}
+{% block icon %}alert-triangle{% endblock %}
+{% block confirm_title %}Ese correo ya está en uso{% endblock %}
+{% block confirm_body %}Alguien más ya registró ese correo mientras tanto — no se hizo el cambio.{% endblock %}

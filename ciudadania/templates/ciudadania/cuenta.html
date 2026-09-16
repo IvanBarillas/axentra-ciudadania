@@ -1,51 +1,103 @@
-<h1>Mi cuenta</h1>
+{% extends "ciudadania/_base_publica.html" %}
+{% comment %}
+Diseño real reemplazando el placeholder sin estilo — mismo pedido y mismo
+patrón ya usado en axentra-mod-situaciones-de-vida para sus páginas
+públicas. Ancla real del panel del ciudadano (ver docs/apps/
+panel-ciudadano-y-flujo-de-solicitudes.md, punto 1): tarjeta de cuenta +
+dos líneas de tiempo (trámites, situaciones de vida) alimentadas por
+EventoExpediente — mismo tratamiento de tarjeta con icono que ya usa
+situaciones_de_vida/publico/detalle.html para sus pasos, aquí como punto
+de actividad en vez de paso numerado.
+{% endcomment %}
+{% block title %}Mi cuenta{% endblock %}
 
-<section>
-  <h2>Mis datos</h2>
-  <p>{{ ciudadano.nombre_completo|default:ciudadano.email }}</p>
-  <p>{{ ciudadano.email }}</p>
-  <p>
-    <a href="{% url 'ciudadania:cambiar_password' %}">Cambiar contraseña</a>
-    ·
-    <a href="{% url 'ciudadania:solicitar_cambio_email' %}">Cambiar correo</a>
-    ·
-    <a href="{% url 'ciudadania:mi_expediente' %}">Mi expediente</a>
-  </p>
+{% block content %}
+<section class="bg-white p-6 rounded-[24px] border border-gray-200/90 shadow-2xs mb-8 relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-24 h-24 bg-brand-primary/5 rounded-bl-full pointer-events-none"></div>
+    <div class="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <div class="h-12 w-12 rounded-2xl bg-brand-primary text-white flex items-center justify-center font-mono font-black text-sm shrink-0">
+                {{ ciudadano.nombre_completo|default:ciudadano.email|slice:":1"|upper }}
+            </div>
+            <div class="min-w-0">
+                <h1 class="text-lg font-black text-gray-950 tracking-tight truncate">{{ ciudadano.nombre_completo|default:ciudadano.email }}</h1>
+                <p class="text-xs text-gray-500 font-medium">{{ ciudadano.email }}</p>
+            </div>
+        </div>
+        <form method="post" action="{% url 'ciudadania:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-gray-500 shadow-sm transition hover:bg-gray-50 hover:text-gray-950 cursor-pointer">
+                <i data-lucide="log-out" class="h-3.5 w-3.5"></i>
+                Cerrar sesión
+            </button>
+        </form>
+    </div>
+
+    <div class="relative z-10 mt-5 pt-5 border-t border-gray-100 flex flex-wrap gap-2">
+        <a href="{% url 'ciudadania:cambiar_password' %}" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 font-mono text-xs font-black uppercase tracking-wider text-gray-500 hover:border-brand-primary/40 hover:text-brand-primary transition">
+            <i data-lucide="key-round" class="h-3 w-3"></i>
+            Cambiar contraseña
+        </a>
+        <a href="{% url 'ciudadania:solicitar_cambio_email' %}" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 font-mono text-xs font-black uppercase tracking-wider text-gray-500 hover:border-brand-primary/40 hover:text-brand-primary transition">
+            <i data-lucide="mail" class="h-3 w-3"></i>
+            Cambiar correo
+        </a>
+        <a href="{% url 'ciudadania:mi_expediente' %}" class="inline-flex items-center gap-1.5 rounded-md border border-brand-accent/20 bg-brand-accent/10 px-2.5 py-1 font-mono text-xs font-black uppercase tracking-wider text-brand-accent hover:bg-brand-accent hover:text-white transition">
+            <i data-lucide="folder-open" class="h-3 w-3"></i>
+            Mi expediente
+        </a>
+    </div>
+</section>
+
+<section class="mb-8">
+    <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 font-mono mb-3">Mis trámites</h2>
+    {% if eventos_tramites %}
+    <div class="space-y-3">
+        {% for evento in eventos_tramites %}
+        <div class="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex gap-3">
+            <div class="h-8 w-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
+                <i data-lucide="file-text" class="h-4 w-4"></i>
+            </div>
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                    <h3 class="text-sm font-black text-gray-950 truncate">{{ evento.titulo }}</h3>
+                    <span class="shrink-0 text-xs font-bold text-gray-400 font-mono">{{ evento.creado_en|date:"d/m/Y" }}</span>
+                </div>
+                {% if evento.descripcion %}<p class="mt-1 text-xs text-gray-500 font-medium leading-relaxed">{{ evento.descripcion }}</p>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white p-6 rounded-2xl border border-dashed border-gray-200 text-center">
+        <p class="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">Todavía no tienes trámites en curso.</p>
+    </div>
+    {% endif %}
 </section>
 
 <section>
-  <h2>Mis trámites</h2>
-  {% if eventos_tramites %}
-    <ul>
-      {% for evento in eventos_tramites %}
-        <li>
-          {{ evento.creado_en|date:"d/m/Y" }} — {{ evento.titulo }}
-          {% if evento.descripcion %}: {{ evento.descripcion }}{% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>Todavía no tienes trámites en curso.</p>
-  {% endif %}
+    <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 font-mono mb-3">Mis situaciones de vida</h2>
+    {% if eventos_situaciones %}
+    <div class="space-y-3">
+        {% for evento in eventos_situaciones %}
+        <div class="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex gap-3">
+            <div class="h-8 w-8 rounded-full bg-brand-accent/10 text-brand-accent flex items-center justify-center shrink-0">
+                <i data-lucide="signpost" class="h-4 w-4"></i>
+            </div>
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                    <h3 class="text-sm font-black text-gray-950 truncate">{{ evento.titulo }}</h3>
+                    <span class="shrink-0 text-xs font-bold text-gray-400 font-mono">{{ evento.creado_en|date:"d/m/Y" }}</span>
+                </div>
+                {% if evento.descripcion %}<p class="mt-1 text-xs text-gray-500 font-medium leading-relaxed">{{ evento.descripcion }}</p>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white p-6 rounded-2xl border border-dashed border-gray-200 text-center">
+        <p class="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">Todavía no tienes situaciones de vida en seguimiento.</p>
+    </div>
+    {% endif %}
 </section>
-
-<section>
-  <h2>Mis situaciones de vida</h2>
-  {% if eventos_situaciones %}
-    <ul>
-      {% for evento in eventos_situaciones %}
-        <li>
-          {{ evento.creado_en|date:"d/m/Y" }} — {{ evento.titulo }}
-          {% if evento.descripcion %}: {{ evento.descripcion }}{% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>Todavía no tienes situaciones de vida en seguimiento.</p>
-  {% endif %}
-</section>
-
-<form method="post" action="{% url 'ciudadania:logout' %}">
-  {% csrf_token %}
-  <button type="submit">Cerrar sesión</button>
-</form>
+{% endblock %}

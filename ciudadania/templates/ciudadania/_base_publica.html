@@ -1,0 +1,96 @@
+<!-- Bug real reportado (probando en vivo): las 19 plantillas del flujo del
+ciudadano (login, registro, cuenta, expediente, cambios de contraseña/correo,
+páginas de confirmación) eran HTML mínimo a propósito, sin CSS/Tailwind — un
+placeholder documentado ("quien instale este paquete lo sobreescribe con su
+propio templates/ciudadania/ si quiere otro diseño", README), pero pedido
+explícito de darles un diseño real acorde al Core. Mismo patrón ya usado en
+axentra-mod-situaciones-de-vida (templates/situaciones_de_vida/publico/
+_base_publica.html): documento HTML propio y completo, referencia real
+templates/public/index.html del Core (su landing pública sin sesión) — nav
+con marca del tenant + footer, bg-brand-primary/accent, font-mono en
+eyebrows/etiquetas, tarjetas blancas redondeadas.
+
+Carga el CSS del Core primero (sistema de diseño compartido) y luego el
+propio de este paquete (huecos de purga reales — el build del Core nunca
+escaneó las plantillas de este satélite) — ambos precompilados reales, sin
+CDN, mismo mecanismo ya usado en tramites/situaciones (tools/tailwind.py). -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mi cuenta{% endblock %} | {{ tenant.app_name|default:"Axentra OS" }}</title>
+
+    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+    <link rel="stylesheet" href="{% static 'ciudadania/css/tailwind.css' %}">
+    <script src="{% static 'js/lucide.min.js' %}"></script>
+
+    <style>
+        :root {
+            --color-brand-primary: {{ tenant.primary_color|default:"#6B1D2F" }};
+            --color-brand-secondary: {{ tenant.secondary_color|default:"#4A5568" }};
+            --color-brand-accent: {{ tenant.accent_color|default:"#059669" }};
+        }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in .35s ease-out both; }
+
+        /* Bug real encontrado probando en vivo: los selectores Tailwind
+           de descendiente por ELEMENTO sin clase ([&_p]:..., [&_label]:...)
+           no compilan en este build (v4.3.3) — solo los de descendiente
+           por CLASE ([&_.errorlist]:...) sí. {{ form.as_p }} de Django
+           genera <p>/<label> sin clase propia; en vez de reescribir cada
+           formulario campo por campo, CSS plano scoped a .form-as-p
+           resuelve exactamente lo mismo que se intentaba con Tailwind. */
+        .form-as-p p { margin-bottom: 1rem; }
+        .form-as-p p:last-of-type { margin-bottom: 0; }
+        .form-as-p label {
+            display: block;
+            font-size: .75rem;
+            font-weight: 900;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-bottom: .375rem;
+        }
+    </style>
+</head>
+<body class="h-full antialiased bg-gray-50 text-gray-950 font-sans">
+    <div class="min-h-screen bg-gray-50 flex flex-col animate-fade-in">
+
+        <nav class="bg-white/80 backdrop-blur-md border-b border-gray-200/80 sticky top-0 z-50 w-full px-6 py-4">
+            <div class="max-w-3xl mx-auto flex justify-between items-center">
+                <a href="{% url 'ciudadania:cuenta' %}" class="flex items-center gap-3">
+                    {% if tenant.logo_light %}
+                        <img src="{{ tenant.logo_light }}" alt="Escudo Oficial" class="w-8 h-8 object-contain">
+                    {% else %}
+                        <div class="bg-brand-primary text-white rounded-xl shadow-xs flex items-center justify-center w-8 h-8 font-mono font-black text-xs shrink-0 tracking-tighter">AX</div>
+                    {% endif %}
+                    <div class="leading-none">
+                        <span class="text-base font-black text-gray-950 tracking-tight uppercase">{{ tenant.app_name|default:"Axentra" }}</span>
+                        <span class="text-brand-accent font-light font-mono text-sm ml-0.5">OS</span>
+                    </div>
+                </a>
+                <div class="hidden sm:flex items-center gap-2 font-mono text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    <span class="w-1.5 h-1.5 bg-gray-300 rounded-full"></span>
+                    <span>Ciudadanía</span>
+                </div>
+            </div>
+        </nav>
+
+        <main class="flex-1 w-full max-w-3xl mx-auto px-6 py-12">
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="w-full py-4 border-t border-gray-200/60 text-center text-xs font-black font-mono text-gray-400 uppercase tracking-[0.15em] bg-white shrink-0">
+            &copy; 2026 {{ tenant.app_name|default:"AXENTRA" }} &bull; CIUDADANÍA
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            if (typeof lucide !== "undefined") { lucide.createIcons(); }
+        });
+    </script>
+</body>
+</html>

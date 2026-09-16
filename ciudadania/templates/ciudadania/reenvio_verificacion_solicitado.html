@@ -1,2 +1,5 @@
-<h1>Revisa tu correo</h1>
-<p>Si la cuenta existe y todavía no está verificada, te reenviamos el enlace de verificación.</p>
+{% extends "ciudadania/_confirmacion_base.html" %}
+{% block title %}Revisa tu correo{% endblock %}
+{% block icon %}mail{% endblock %}
+{% block confirm_title %}Revisa tu correo{% endblock %}
+{% block confirm_body %}Si la cuenta existe y todavía no está verificada, te reenviamos el enlace de verificación.{% endblock %}

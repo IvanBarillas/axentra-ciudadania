@@ -1,3 +1,10 @@
-<h1>Correo actualizado</h1>
-<p>Tu correo ahora es {{ ciudadano.email }}.</p>
-<p><a href="{% url 'ciudadania:cuenta' %}">Volver a mi cuenta</a></p>
+{% extends "ciudadania/_confirmacion_base.html" %}
+{% block title %}Correo actualizado{% endblock %}
+{% block icon %}check-circle{% endblock %}
+{% block confirm_title %}Correo actualizado{% endblock %}
+{% block confirm_body %}Tu correo ahora es {{ ciudadano.email }}.{% endblock %}
+{% block confirm_cta %}
+<a href="{% url 'ciudadania:cuenta' %}" class="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition hover:brightness-110">
+    Volver a mi cuenta
+</a>
+{% endblock %}
