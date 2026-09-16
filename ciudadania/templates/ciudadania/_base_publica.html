@@ -31,6 +31,14 @@ CDN, mismo mecanismo ya usado en tramites/situaciones (tools/tailwind.py). -->
             --color-brand-primary: {{ tenant.primary_color|default:"#6B1D2F" }};
             --color-brand-secondary: {{ tenant.secondary_color|default:"#4A5568" }};
             --color-brand-accent: {{ tenant.accent_color|default:"#059669" }};
+            /* Variable en vez de clase de Tailwind directa: un bloque de
+               Django no puede repetirse dos veces en el MISMO archivo
+               (rechazado en tiempo de parseo) — nav y main necesitan el
+               mismo ancho, así que este es el único punto de override
+               (_panel_base.html lo ensancha para su layout de dos
+               columnas); la clase max-w-[var(--panel-max-width)] queda
+               estática en ambos lugares. */
+            --panel-max-width: {% block panel_max_width %}48rem{% endblock %};
         }
         @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fade-in .35s ease-out both; }
@@ -59,7 +67,7 @@ CDN, mismo mecanismo ya usado en tramites/situaciones (tools/tailwind.py). -->
     <div class="min-h-screen bg-gray-50 flex flex-col animate-fade-in">
 
         <nav class="bg-white/80 backdrop-blur-md border-b border-gray-200/80 sticky top-0 z-50 w-full px-6 py-4">
-            <div class="max-w-3xl mx-auto flex justify-between items-center">
+            <div class="max-w-[var(--panel-max-width)] mx-auto flex justify-between items-center">
                 <a href="{% url 'ciudadania:cuenta' %}" class="flex items-center gap-3">
                     {% if tenant.logo_light %}
                         <img src="{{ tenant.logo_light }}" alt="Escudo Oficial" class="w-8 h-8 object-contain">
@@ -78,7 +86,7 @@ CDN, mismo mecanismo ya usado en tramites/situaciones (tools/tailwind.py). -->
             </div>
         </nav>
 
-        <main class="flex-1 w-full max-w-3xl mx-auto px-6 py-12">
+        <main class="flex-1 w-full max-w-[var(--panel-max-width)] mx-auto px-6 py-12">
             {% block content %}{% endblock %}
         </main>
 

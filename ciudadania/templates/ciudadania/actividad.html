@@ -1,0 +1,39 @@
+{% extends "ciudadania/_panel_base.html" %}
+{% comment %}
+Página propia por categoría de actividad (un satélite) — antes vivía
+apilada dentro de cuenta.html junto con todo lo demás. Ver
+_panel_base.html para el porqué del cambio.
+{% endcomment %}
+{% block title %}{{ titulo_categoria }}{% endblock %}
+
+{% block panel_content %}
+<div class="flex items-center gap-3 mb-6">
+    <div class="h-10 w-10 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
+        <i data-lucide="{{ icono_categoria }}" class="h-5 w-5"></i>
+    </div>
+    <h1 class="text-lg font-black text-gray-950 tracking-tight">{{ titulo_categoria }}</h1>
+</div>
+
+{% if eventos %}
+<div class="space-y-3">
+    {% for evento in eventos %}
+    <div class="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex gap-3">
+        <div class="h-8 w-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
+            <i data-lucide="{{ icono_categoria }}" class="h-4 w-4"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-2">
+                <h3 class="text-sm font-black text-gray-950 truncate">{{ evento.titulo }}</h3>
+                <span class="shrink-0 text-xs font-bold text-gray-400 font-mono">{{ evento.creado_en|date:"d/m/Y" }}</span>
+            </div>
+            {% if evento.descripcion %}<p class="mt-1 text-xs text-gray-500 font-medium leading-relaxed">{{ evento.descripcion }}</p>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white p-6 rounded-2xl border border-dashed border-gray-200 text-center">
+    <p class="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">Todavía no tienes actividad aquí.</p>
+</div>
+{% endif %}
+{% endblock %}
