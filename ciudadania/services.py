@@ -594,6 +594,14 @@ def existe_documento_de_tipo(ciudadano_id, tipo_documento_clave: str) -> Documen
     ).first()
 
 
+def obtener_documento(documento_id) -> Documento | None:
+    """Para que un satélite (ej. la máquina de estados de una Solicitud
+    en axentra-mod-tramites) resuelva la referencia blanda que guardó
+    (`documento_id`, un UUID suelto) y consulte su estado real —
+    ej. para decidir si ya puede avanzar de paso."""
+    return Documento.objects.filter(id=documento_id).select_related("tipo_documento").first()
+
+
 def subir_documento_a_expediente(ciudadano_id, tipo_documento_clave: str, archivo) -> Documento:
     """
     Sube (o sobrescribe) el documento de un tipo dado en el expediente

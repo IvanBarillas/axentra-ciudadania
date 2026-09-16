@@ -521,3 +521,24 @@ class ActualizarEstadoDocumentoTests(TestCase):
         )
 
         self.assertIsNone(resultado)
+
+
+class ObtenerDocumentoTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="x")
+        self.tipo_rfc = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+
+    @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
+    def test_devuelve_el_documento_por_id(self):
+        documento = services.subir_documento_a_expediente(
+            self.ciudadano.id,
+            self.tipo_rfc.clave,
+            SimpleUploadedFile("foto.png", _imagen_bytes(), content_type="image/png"),
+        )
+
+        encontrado = services.obtener_documento(documento.id)
+
+        self.assertEqual(encontrado.id, documento.id)
+
+    def test_id_inexistente_devuelve_none(self):
+        self.assertIsNone(services.obtener_documento("00000000-0000-0000-0000-000000000000"))
