@@ -64,7 +64,7 @@ class EventoExpedienteModelTests(TestCase):
 class DocumentoModelTests(TestCase):
     def setUp(self):
         self.ciudadano = Ciudadano.objects.create_ciudadano(email="vecino@example.mx", password="x")
-        self.tipo_rfc = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+        self.tipo_rfc = TipoDocumento.objects.get(clave="rfc")
 
     def test_es_unico_por_tipo_y_ciudadano(self):
         Documento.objects.create(
@@ -104,3 +104,21 @@ class DocumentoModelTests(TestCase):
         self.ciudadano.delete()
 
         self.assertFalse(Documento.objects.exists())
+
+
+class SemillaTipoDocumentoTests(TestCase):
+    """Bug real reportado (probando en vivo): el selector de "Mi
+    expediente" salía vacío — nadie sembraba TipoDocumento. La migración
+    0006 la siembra sola, sin pasar por el Admin ni por el Hub."""
+
+    def test_los_tipos_comunes_ya_existen_tras_migrar(self):
+        claves_esperadas = {
+            "rfc",
+            "curp",
+            "acta-de-nacimiento",
+            "identificacion-oficial",
+            "comprobante-de-domicilio",
+        }
+        claves_reales = set(TipoDocumento.objects.values_list("clave", flat=True))
+
+        self.assertTrue(claves_esperadas.issubset(claves_reales))

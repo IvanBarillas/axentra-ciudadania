@@ -448,7 +448,7 @@ class ConvertirAPdfTests(TestCase):
 class ExpedienteTests(TestCase):
     def setUp(self):
         self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="x")
-        self.tipo_rfc = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+        self.tipo_rfc = TipoDocumento.objects.get(clave="rfc")
 
     def _archivo_imagen(self, nombre="foto.png"):
         return SimpleUploadedFile(nombre, _imagen_bytes(), content_type="image/png")
@@ -501,7 +501,7 @@ class ExpedienteTests(TestCase):
 class ActualizarEstadoDocumentoTests(TestCase):
     def setUp(self):
         self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="x")
-        self.tipo_rfc = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+        self.tipo_rfc = TipoDocumento.objects.get(clave="rfc")
 
     @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
     def test_acepta_documento(self):
@@ -526,7 +526,7 @@ class ActualizarEstadoDocumentoTests(TestCase):
 class ObtenerDocumentoTests(TestCase):
     def setUp(self):
         self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="x")
-        self.tipo_rfc = TipoDocumento.objects.create(clave="rfc", nombre="RFC")
+        self.tipo_rfc = TipoDocumento.objects.get(clave="rfc")
 
     @override_settings(MEDIA_ROOT="/tmp/ciudadania-tests-media")
     def test_devuelve_el_documento_por_id(self):
