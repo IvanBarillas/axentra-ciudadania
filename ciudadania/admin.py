@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Ciudadano, Documento, EventoExpediente, IntentoAcceso, TipoDocumento
+from .models import (
+    Ciudadano,
+    Documento,
+    EventoExpediente,
+    IntentoAcceso,
+    SeguimientoProceso,
+    TipoDocumento,
+)
 
 
 @admin.register(Ciudadano)
@@ -89,6 +96,29 @@ class EventoExpedienteAdmin(admin.ModelAdmin):
     list_filter = ("satelite_origen", "tipo_evento")
     search_fields = ("titulo", "descripcion", "ciudadano__email")
     ordering = ("-creado_en",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(SeguimientoProceso)
+class SeguimientoProcesoAdmin(admin.ModelAdmin):
+    """
+    Solo lectura, mismo criterio que EventoExpediente: esto lo escriben
+    los satélites vía iniciar_seguimiento()/marcar_paso_en_seguimiento(),
+    no una persona a mano desde el Admin.
+    """
+
+    list_display = ("ciudadano", "satelite_origen", "titulo", "estado", "iniciado_en", "actualizado_en")
+    list_filter = ("satelite_origen", "estado")
+    search_fields = ("titulo", "referencia_proceso", "ciudadano__email")
+    ordering = ("-actualizado_en",)
 
     def has_add_permission(self, request):
         return False

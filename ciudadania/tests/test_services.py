@@ -578,3 +578,111 @@ class ObtenerDocumentoTests(TestCase):
 
     def test_id_inexistente_devuelve_none(self):
         self.assertIsNone(services.obtener_documento("00000000-0000-0000-0000-000000000000"))
+
+
+class SeguimientoProcesoTests(TestCase):
+    def setUp(self):
+        self.ciudadano = services.registrar_ciudadano(email="vecino@example.mx", password="x")
+
+    def test_iniciar_seguimiento_queda_activo(self):
+        seguimiento = services.iniciar_seguimiento(
+            self.ciudadano.id,
+            satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion-de-un-familiar",
+            titulo="Defunción de un familiar",
+        )
+
+        self.assertEqual(seguimiento.estado, "activo")
+        self.assertEqual(seguimiento.pasos_completados, [])
+
+    def test_iniciar_seguimiento_con_ciudadano_inexistente_devuelve_none(self):
+        resultado = services.iniciar_seguimiento(
+            "00000000-0000-0000-0000-000000000000",
+            satelite_origen="situaciones_de_vida",
+            referencia_proceso="x",
+            titulo="x",
+        )
+
+        self.assertIsNone(resultado)
+
+    def test_dos_instancias_del_mismo_proceso_no_se_pisan(self):
+        # Bug real corregido: la misma situación le puede pasar dos
+        # veces al mismo ciudadano (dos familiares distintos) — cada
+        # vez debe ser una instancia propia con su propio avance.
+        primera = services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion", titulo="Defunción de un familiar",
+        )
+        services.marcar_paso_en_seguimiento(primera.id, "1")
+        services.concluir_seguimiento(primera.id)
+
+        segunda = services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion", titulo="Defunción de un familiar",
+        )
+
+        self.assertNotEqual(primera.id, segunda.id)
+        self.assertEqual(segunda.pasos_completados, [])
+        self.assertEqual(services.obtener_seguimiento(primera.id).pasos_completados, ["1"])
+
+    def test_obtener_seguimiento_activo_ignora_concluidos_y_cancelados(self):
+        seguimiento = services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion", titulo="Defunción de un familiar",
+        )
+
+        activo = services.obtener_seguimiento_activo(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida", referencia_proceso="defuncion",
+        )
+        self.assertEqual(activo.id, seguimiento.id)
+
+        services.concluir_seguimiento(seguimiento.id)
+
+        self.assertIsNone(services.obtener_seguimiento_activo(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida", referencia_proceso="defuncion",
+        ))
+
+    def test_marcar_paso_es_idempotente(self):
+        seguimiento = services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion", titulo="Defunción de un familiar",
+        )
+
+        services.marcar_paso_en_seguimiento(seguimiento.id, "1")
+        resultado = services.marcar_paso_en_seguimiento(seguimiento.id, "1")
+
+        self.assertEqual(resultado.pasos_completados, ["1"])
+
+    def test_marcar_paso_en_seguimiento_inexistente_devuelve_none(self):
+        resultado = services.marcar_paso_en_seguimiento(
+            "00000000-0000-0000-0000-000000000000", "1"
+        )
+        self.assertIsNone(resultado)
+
+    def test_cancelar_seguimiento_cambia_estado(self):
+        seguimiento = services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion", titulo="Defunción de un familiar",
+        )
+
+        resultado = services.cancelar_seguimiento(seguimiento.id)
+
+        self.assertEqual(resultado.estado, "cancelado")
+
+    def test_obtener_seguimientos_lista_todas_las_instancias(self):
+        services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion", titulo="Defunción de un familiar",
+        )
+        services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="tramites",
+            referencia_proceso="x", titulo="Otro satélite",
+        )
+
+        todos = services.obtener_seguimientos(self.ciudadano.id)
+        solo_situaciones = services.obtener_seguimientos(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida"
+        )
+
+        self.assertEqual(len(todos), 2)
+        self.assertEqual(len(solo_situaciones), 1)

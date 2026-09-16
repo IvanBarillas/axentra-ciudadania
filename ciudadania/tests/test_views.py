@@ -262,6 +262,51 @@ class CuentaLogueadaTests(TestCase):
 
         self.assertContains(respuesta, "Todavía no tienes actividad aquí.")
 
+    def test_panel_actividad_muestra_seguimientos_con_estado_y_enlace(self):
+        services.iniciar_seguimiento(
+            self.ciudadano.id,
+            satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion",
+            titulo="Defunción de un familiar",
+            url_relativa="/situaciones/defuncion/",
+        )
+
+        respuesta = self.client.get(
+            reverse("ciudadania:panel_actividad", args=["situaciones_de_vida"])
+        )
+
+        self.assertContains(respuesta, "Defunción de un familiar")
+        self.assertContains(respuesta, "Activo")
+        self.assertContains(respuesta, 'href="/situaciones/defuncion/"')
+
+    def test_panel_actividad_dos_instancias_del_mismo_proceso_salen_por_separado(self):
+        # Bug real corregido: dos familiares distintos son dos tarjetas,
+        # no una sola que se sobreescribe.
+        services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion", titulo="Defunción de un familiar",
+        )
+        services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion", titulo="Defunción de un familiar",
+        )
+
+        respuesta = self.client.get(
+            reverse("ciudadania:panel_actividad", args=["situaciones_de_vida"])
+        )
+
+        self.assertEqual(len(respuesta.context["seguimientos"]), 2)
+
+    def test_sidebar_incluye_satelites_con_seguimientos_sin_eventos(self):
+        services.iniciar_seguimiento(
+            self.ciudadano.id, satelite_origen="situaciones_de_vida",
+            referencia_proceso="defuncion", titulo="Defunción de un familiar",
+        )
+
+        respuesta = self.client.get(reverse("ciudadania:cuenta"))
+
+        self.assertContains(respuesta, "Mis situaciones de vida")
+
     def test_panel_actividad_sin_sesion_redirige_a_login(self):
         self.client.logout()
 
