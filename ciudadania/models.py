@@ -98,6 +98,68 @@ class EventoExpediente(models.Model):
         return f"{self.satelite_origen}: {self.titulo}"
 
 
+class SeguimientoProceso(models.Model):
+    """
+    Una instancia de un ciudadano siguiendo un proceso de varios pasos
+    de un satélite externo (ej. una situación de vida) — a diferencia
+    de `EventoExpediente` (bitácora de una sola vez, append-only), esto
+    es estado que se actualiza: qué pasos lleva marcados, si sigue
+    activo o ya concluyó/lo canceló.
+
+    Bug real corregido (probando en vivo): la primera versión de esto
+    marcaba "paso X hecho" como una bandera única por (ciudadano, paso)
+    para siempre — si al mismo ciudadano le vuelve a pasar la misma
+    situación de vida (dos familiares distintos, por ejemplo), la
+    segunda vez ya aparecía todo hecho de la primera. Una instancia
+    propia por cada vez que el ciudadano empieza el proceso resuelve
+    esto: cada una lleva su propio avance, nunca se pisan.
+
+    Igual de desacoplado que `EventoExpediente`: `satelite_origen` y
+    `referencia_proceso` son texto libre — este paquete no sabe qué es
+    una "situación de vida" ni conoce `PasoSituacion`, solo guarda
+    referencias y las devuelve. El satélite dueño del proceso (ej.
+    axentra-mod-situaciones-de-vida) es quien sabe traducir
+    `referencia_proceso` y cada entrada de `pasos_completados` de
+    vuelta a sus propios objetos reales.
+    """
+
+    class Estado(models.TextChoices):
+        ACTIVO = "activo", "Activo"
+        CONCLUIDO = "concluido", "Concluido"
+        CANCELADO = "cancelado", "Cancelado"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ciudadano = models.ForeignKey(
+        Ciudadano, on_delete=models.CASCADE, related_name="seguimientos_proceso"
+    )
+    satelite_origen = models.CharField(max_length=50)
+    # Identifica QUÉ proceso se está siguiendo (ej. el slug de la
+    # situación de vida) — no CUÁL instancia; para eso está el id.
+    referencia_proceso = models.CharField(max_length=255)
+    titulo = models.CharField(max_length=255)
+    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVO)
+    # Ruta real (no dominio completo — mismo proceso de Django, satélite
+    # instalado junto a ciudadania) de vuelta a la página del satélite
+    # dueño, para que el panel del ciudadano pueda enlazar sin conocer
+    # las URLs de ningún satélite en particular. Opcional: un satélite
+    # que no la mande simplemente no sale como enlace, solo como texto.
+    url_relativa = models.CharField(max_length=500, blank=True, default="")
+    # Lista de referencias de paso (texto libre, ej. "5") ya marcadas —
+    # sin tabla aparte a propósito: no hace falta más que pertenencia.
+    pasos_completados = models.JSONField(default=list, blank=True)
+    iniciado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["ciudadano", "satelite_origen", "referencia_proceso", "estado"]),
+        ]
+        ordering = ["-actualizado_en"]
+
+    def __str__(self):
+        return f"{self.satelite_origen}: {self.titulo} ({self.get_estado_display()})"
+
+
 class TipoDocumento(models.Model):
     """
     Catálogo de tipos de documento de identidad que un ciudadano puede

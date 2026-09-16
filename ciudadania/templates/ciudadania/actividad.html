@@ -3,6 +3,15 @@
 Página propia por categoría de actividad (un satélite) — antes vivía
 apilada dentro de cuenta.html junto con todo lo demás. Ver
 _panel_base.html para el porqué del cambio.
+
+Dos fuentes posibles, nunca mezcladas visualmente: `seguimientos`
+(instancias de SeguimientoProceso, con estado — ej. situaciones de
+vida, cada una puede repetirse: dos familiares distintos son dos
+tarjetas) y `eventos` (EventoExpediente, bitácora plana — ej.
+trámites). Un satélite puede tener cualquiera de las dos, o ambas.
+`url_relativa` es opcional: si el satélite la mandó al crear la
+instancia, la tarjeta enlaza a su página real; si no, solo texto —
+ciudadania nunca conoce las URLs de ningún satélite en particular.
 {% endcomment %}
 {% block title %}{{ titulo_categoria }}{% endblock %}
 
@@ -13,6 +22,30 @@ _panel_base.html para el porqué del cambio.
     </div>
     <h1 class="text-lg font-black text-gray-950 tracking-tight">{{ titulo_categoria }}</h1>
 </div>
+
+{% if seguimientos %}
+<div class="space-y-3 mb-6">
+    {% for seguimiento in seguimientos %}
+    {% if seguimiento.url_relativa %}<a href="{{ seguimiento.url_relativa }}"{% else %}<div{% endif %}
+       class="block bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs {% if seguimiento.url_relativa %}hover:border-brand-primary/40 transition{% endif %}">
+        <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-black text-gray-950 truncate">{{ seguimiento.titulo }}</h3>
+            {% if seguimiento.estado == "activo" %}
+            <span class="shrink-0 inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-black uppercase tracking-wider text-emerald-700">Activo</span>
+            {% elif seguimiento.estado == "concluido" %}
+            <span class="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 font-mono text-xs font-black uppercase tracking-wider text-gray-500">Concluido</span>
+            {% else %}
+            <span class="shrink-0 inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 font-mono text-xs font-black uppercase tracking-wider text-red-700">Cancelado</span>
+            {% endif %}
+        </div>
+        <p class="mt-1 text-xs text-gray-400 font-medium">
+            Empezado el {{ seguimiento.iniciado_en|date:"d/m/Y" }}
+            {% if seguimiento.pasos_completados %}&bull; {{ seguimiento.pasos_completados|length }} paso{{ seguimiento.pasos_completados|length|pluralize }} marcado{{ seguimiento.pasos_completados|length|pluralize }}{% endif %}
+        </p>
+    {% if seguimiento.url_relativa %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+</div>
+{% endif %}
 
 {% if eventos %}
 <div class="space-y-3">
@@ -31,7 +64,9 @@ _panel_base.html para el porqué del cambio.
     </div>
     {% endfor %}
 </div>
-{% else %}
+{% endif %}
+
+{% if not seguimientos and not eventos %}
 <div class="bg-white p-6 rounded-2xl border border-dashed border-gray-200 text-center">
     <p class="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">Todavía no tienes actividad aquí.</p>
 </div>

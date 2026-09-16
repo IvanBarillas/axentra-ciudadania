@@ -234,14 +234,25 @@ def _construir_items_sidebar(ciudadano_id, *, activo):
             "activo": activo == "expediente",
         },
     ]
-    for grupo in services.obtener_linea_de_tiempo_agrupada(ciudadano_id):
-        titulo, icono = _titulo_e_icono_satelite(grupo.satelite_origen)
+    # Dos fuentes de actividad por satélite — EventoExpediente (bitácora
+    # plana, ej. trámites) y SeguimientoProceso (instancias con estado,
+    # ej. situaciones de vida, ver models.SeguimientoProceso). Un
+    # satélite puede aparecer en cualquiera de las dos, o ambas — se
+    # combinan por satelite_origen para no duplicar el item del menú.
+    satelites_con_actividad = {
+        grupo.satelite_origen for grupo in services.obtener_linea_de_tiempo_agrupada(ciudadano_id)
+    }
+    satelites_con_actividad |= {
+        s.satelite_origen for s in services.obtener_seguimientos(ciudadano_id)
+    }
+    for satelite_origen in sorted(satelites_con_actividad):
+        titulo, icono = _titulo_e_icono_satelite(satelite_origen)
         items.append({
-            "id": grupo.satelite_origen,
+            "id": satelite_origen,
             "titulo": titulo,
             "icono": icono,
-            "url": reverse("ciudadania:panel_actividad", args=[grupo.satelite_origen]),
-            "activo": activo == grupo.satelite_origen,
+            "url": reverse("ciudadania:panel_actividad", args=[satelite_origen]),
+            "activo": activo == satelite_origen,
         })
     return items
 
@@ -279,6 +290,7 @@ def panel_actividad_view(request, satelite):
             "titulo_categoria": titulo,
             "icono_categoria": icono,
             "eventos": services.obtener_linea_de_tiempo(ciudadano.id, satelite_origen=satelite),
+            "seguimientos": services.obtener_seguimientos(ciudadano.id, satelite_origen=satelite),
         },
     )
 

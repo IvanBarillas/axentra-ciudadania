@@ -20,7 +20,14 @@ from django.db.models import Q
 from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
 
-from .models import Ciudadano, Documento, EventoExpediente, IntentoAcceso, TipoDocumento
+from .models import (
+    Ciudadano,
+    Documento,
+    EventoExpediente,
+    IntentoAcceso,
+    SeguimientoProceso,
+    TipoDocumento,
+)
 
 # Hallazgo real (reportado por el usuario, probando contra el backend de
 # consola): la política de correo moderna de Python pliega cualquier línea
@@ -694,3 +701,140 @@ def actualizar_estado_documento(documento_id, estado: str, *, motivo_rechazo: st
     documento.motivo_rechazo = motivo_rechazo if estado == Documento.Estado.RECHAZADO else ""
     documento.save(update_fields=["estado", "motivo_rechazo", "actualizado_en"])
     return documento
+
+
+# ======================================================================
+# Seguimiento de procesos por instancia — ver models.SeguimientoProceso
+# para el porqué (una instancia por cada vez que el ciudadano empieza
+# el mismo proceso, en vez de una bandera única para siempre).
+# ======================================================================
+
+
+@dataclasses.dataclass(frozen=True)
+class SeguimientoPublico:
+    """Snapshot de solo lectura de un SeguimientoProceso — mismo
+    espíritu que EventoPublico/CiudadanoPublico: para que un satélite
+    externo lo use sin acoplarse al modelo de Django."""
+
+    id: str
+    satelite_origen: str
+    referencia_proceso: str
+    titulo: str
+    estado: str
+    url_relativa: str
+    pasos_completados: list[str]
+    iniciado_en: datetime
+    actualizado_en: datetime
+
+
+def _a_seguimiento_publico(seguimiento: SeguimientoProceso) -> SeguimientoPublico:
+    return SeguimientoPublico(
+        id=str(seguimiento.id),
+        satelite_origen=seguimiento.satelite_origen,
+        referencia_proceso=seguimiento.referencia_proceso,
+        titulo=seguimiento.titulo,
+        estado=seguimiento.estado,
+        url_relativa=seguimiento.url_relativa,
+        pasos_completados=list(seguimiento.pasos_completados),
+        iniciado_en=seguimiento.iniciado_en,
+        actualizado_en=seguimiento.actualizado_en,
+    )
+
+
+def obtener_seguimiento_activo(
+    ciudadano_id, *, satelite_origen: str, referencia_proceso: str
+) -> SeguimientoPublico | None:
+    """Para que el satélite decida, al entrar el ciudadano: ¿ya tiene
+    una instancia activa de este proceso, o debe ofrecerle empezar una
+    nueva? None si no hay ninguna activa (nunca empezó, o la última ya
+    se concluyó/canceló — puede empezar otra)."""
+    seguimiento = SeguimientoProceso.objects.filter(
+        ciudadano_id=ciudadano_id,
+        satelite_origen=satelite_origen,
+        referencia_proceso=referencia_proceso,
+        estado=SeguimientoProceso.Estado.ACTIVO,
+    ).first()
+    return _a_seguimiento_publico(seguimiento) if seguimiento else None
+
+
+def obtener_seguimiento(seguimiento_id) -> SeguimientoPublico | None:
+    """Para la página de detalle de una instancia específica (ej. tras
+    marcar un paso, o para pintar su timeline)."""
+    seguimiento = SeguimientoProceso.objects.filter(id=seguimiento_id).first()
+    return _a_seguimiento_publico(seguimiento) if seguimiento else None
+
+
+def obtener_seguimientos(ciudadano_id, *, satelite_origen: str | None = None) -> list[SeguimientoPublico]:
+    """Para que el panel del ciudadano liste todas las instancias de un
+    satélite (activas, concluidas y canceladas) — una tarjeta por cada
+    vez que empezó el proceso, nunca solo la más reciente."""
+    seguimientos = SeguimientoProceso.objects.filter(ciudadano_id=ciudadano_id)
+    if satelite_origen:
+        seguimientos = seguimientos.filter(satelite_origen=satelite_origen)
+    return [_a_seguimiento_publico(s) for s in seguimientos]
+
+
+def iniciar_seguimiento(
+    ciudadano_id,
+    *,
+    satelite_origen: str,
+    referencia_proceso: str,
+    titulo: str,
+    url_relativa: str = "",
+) -> SeguimientoPublico | None:
+    """Crea una instancia nueva, siempre — el satélite es quien decide
+    si debe llamar esto o mandar al ciudadano a una activa que ya
+    existe (obtener_seguimiento_activo primero). None si el ciudadano
+    no existe (baja lógica incluida).
+
+    `url_relativa` es opcional: la ruta real de vuelta a la página del
+    satélite para esta instancia (ej. reverse('situaciones_de_vida:
+    detalle', args=[slug])) — si no se manda, el panel del ciudadano
+    simplemente no enlaza, solo muestra el título."""
+    if not Ciudadano.objects.filter(id=ciudadano_id).exists():
+        return None
+
+    seguimiento = SeguimientoProceso.objects.create(
+        ciudadano_id=ciudadano_id,
+        satelite_origen=satelite_origen,
+        referencia_proceso=referencia_proceso,
+        titulo=titulo,
+        url_relativa=url_relativa,
+    )
+    return _a_seguimiento_publico(seguimiento)
+
+
+def marcar_paso_en_seguimiento(seguimiento_id, paso_referencia: str) -> SeguimientoPublico | None:
+    """Agrega una referencia de paso a pasos_completados si no estaba
+    ya (idempotente). None si la instancia no existe."""
+    seguimiento = SeguimientoProceso.objects.filter(id=seguimiento_id).first()
+    if seguimiento is None:
+        return None
+
+    if paso_referencia not in seguimiento.pasos_completados:
+        seguimiento.pasos_completados = [*seguimiento.pasos_completados, paso_referencia]
+        seguimiento.save(update_fields=["pasos_completados", "actualizado_en"])
+    return _a_seguimiento_publico(seguimiento)
+
+
+def _cambiar_estado_seguimiento(seguimiento_id, estado: str) -> SeguimientoPublico | None:
+    seguimiento = SeguimientoProceso.objects.filter(id=seguimiento_id).first()
+    if seguimiento is None:
+        return None
+    seguimiento.estado = estado
+    seguimiento.save(update_fields=["estado", "actualizado_en"])
+    return _a_seguimiento_publico(seguimiento)
+
+
+def concluir_seguimiento(seguimiento_id) -> SeguimientoPublico | None:
+    """El ciudadano terminó todos los pasos que le interesaban de esta
+    instancia — no vuelve a aparecer como activa, así que si el mismo
+    proceso le vuelve a pasar puede empezar una instancia nueva."""
+    return _cambiar_estado_seguimiento(seguimiento_id, SeguimientoProceso.Estado.CONCLUIDO)
+
+
+def cancelar_seguimiento(seguimiento_id) -> SeguimientoPublico | None:
+    """El ciudadano decidió no continuar con esta instancia — mismo
+    efecto que concluir_seguimiento para que no bloquee empezar una
+    nueva, pero con su propio estado para distinguir el motivo."""
+    return _cambiar_estado_seguimiento(seguimiento_id, SeguimientoProceso.Estado.CANCELADO)
