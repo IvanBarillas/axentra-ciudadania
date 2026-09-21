@@ -121,3 +121,10 @@ Para reconstruir el CSS tras editar plantillas:
 python tools/tailwind.py install
 python tools/tailwind.py build
 ```
+
+## Superficie pública en una instalación real
+
+`ciudadania/public_entry.py` publica, además de `get_public_entry()`, las constantes estáticas `PUBLIC_URLCONF = "ciudadania.urls"` y
+`PUBLIC_PREFIX = "ciudadano/"`: el Core (con `public_urlconf`/`PublicSurface`, rama `feature/exposicion-satelites-instalacion-real`)
+monta la cuenta ciudadana en su dominio público bajo `/ciudadano/`, junto a Trámites y Situaciones — un solo dominio, una sola sesión.
+Con ese prefijo, `CIUDADANIA_PUBLIC_BASE_URL` debe incluirlo (`https://<ciudadano>/ciudadano`). Siguen sin haber panel ni `AppModule`.

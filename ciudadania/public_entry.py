@@ -16,6 +16,15 @@ from django.conf import settings
 
 from apps.shared.module_sdk import PublicEntry
 
+# Superficie pública (vistas de la cuenta ciudadana) que el Core monta en el
+# dominio del ciudadano, junto a Trámites y Situaciones (una sola sesión).
+# Constantes ESTÁTICAS a propósito: el urlconf se arma una vez al arrancar, y
+# get_public_entry() se evalúa por petición y puede devolver None (interruptor
+# CIUDADANIA_HABILITADA) sin que las rutas deban desmontarse. Con este prefijo,
+# CIUDADANIA_PUBLIC_BASE_URL debe incluirlo (https://<ciudadano>/ciudadano).
+PUBLIC_URLCONF = "ciudadania.urls"
+PUBLIC_PREFIX = "ciudadano/"
+
 
 def get_public_entry():
     from .services import ciudadania_habilitada
