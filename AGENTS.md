@@ -44,6 +44,7 @@ estado y decisiones vigentes: `../HANDOFF.md`. Decisiones y notas de diseño: `R
   `main`/`develop`, ni siquiera docs.
 - Migraciones: no editar las existentes; agregar nuevas.
 - Comentarios solo para el porqué no obvio.
+- Reglas Axentra numeradas: cumplir el catálogo del Core `../../axentra-core/axentra-core-django/docs/reglas-axentra.md` (AX-NN). AX-01: si algún día tiene `permissions.py`, declarar `PERMISSION_GROUPS`/`PERMISSION_LABELS` y toda llave en un grupo.
 
 ## Antes de dar algo por terminado
 1. Pruebas en verde. 2. Verificado en vivo (curl con cookies o navegador). 3. Datos de prueba borrados.
